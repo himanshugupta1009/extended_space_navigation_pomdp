@@ -71,7 +71,7 @@ end
 #Simulating Human One step forward in POMDP planning
 
 function get_pedestrian_discrete_position_pomdp_planning(new_x,new_y,world)
-    discretization_step_length = 2.0
+    discretization_step_length = 1.0
     discrete_x = floor(new_x/discretization_step_length) * discretization_step_length
     discrete_y = floor(new_y/discretization_step_length) * discretization_step_length
     discrete_x = clamp(discrete_x,0,world.length)
@@ -81,7 +81,7 @@ end
 
 function update_human_position_pomdp_planning(human, world, time_step, rng)
 
-    rand_num = (rand(rng) - 0.5)*0.5
+    rand_num = (rand(rng) - 0.5)*0.1
 
     #First Quadrant
     if(human.goal.x >= human.x && human.goal.y >= human.y)

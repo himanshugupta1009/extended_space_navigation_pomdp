@@ -232,7 +232,7 @@ function write_and_print(io::IOStream, string_to_be_written_and_printed::String)
 end
 
 
-function run_one_simulation(env_right_now)
+function run_one_simulation(env_right_now, user_defined_rng)
 
     time_taken_by_cart = 0
     number_risks = 0
@@ -242,13 +242,13 @@ function run_one_simulation(env_right_now)
     cone_half_angle = pi/3.0
     cart_ran_into_boundary_wall_near_goal_flag = false
     filename = "output_just_2d_action_space_pomdp_planner.txt"
-    user_defined_rng = MersenneTwister(7)
     cart_throughout_path = []
     all_gif_environments = []
     all_observed_environments = []
     all_generated_beliefs = []
     all_generated_trees = []
     all_risky_scenarios = []
+    reached_goal_flag = false
 
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
@@ -368,11 +368,11 @@ actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0)
 #                                             (-10.0,-10.0)]
 
 solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space)),
-        calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=50,T_max=0.8, tree_in_info=true)
+        calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.8, tree_in_info=true)
 planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp());
 
 all_gif_environments, all_observed_environments, all_generated_beliefs, all_generated_trees,
-        all_risky_scenarios, number_risks, time_taken_by_cart = run_one_simulation(env_right_now)
+        all_risky_scenarios, number_risks, time_taken_by_cart = run_one_simulation(env_right_now, MersenneTwister(7))
 
 anim = @animate for i ∈ 1:length(all_observed_environments)
     display_env(all_observed_environments[i]);
