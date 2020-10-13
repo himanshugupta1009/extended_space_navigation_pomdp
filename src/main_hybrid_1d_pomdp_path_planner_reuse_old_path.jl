@@ -266,7 +266,7 @@ end
 
 
 
-function run_one_simulation(env_right_now)
+function run_one_simulation(env_right_now,user_defined_rng)
 
     time_taken_by_cart = 0
     number_risks = 0
@@ -278,7 +278,6 @@ function run_one_simulation(env_right_now)
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_near_goal_flag = false
     filename = "output_resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner.txt"
-    user_defined_rng = MersenneTwister(7)
     cart_throughout_path = []
     all_gif_environments = []
     all_observed_environments = []
@@ -416,21 +415,22 @@ end
 
 env_right_now = deepcopy(env)
 #Create POMDP for hybrid_a_star + POMDP speed planner at every time step
-golfcart_1D_action_space_pomdp() = POMDP_Planner_1D_action_space(0.9,2.0,-1000.0,1.0,1.0,100.0,7.0,env_right_now,1)
+golfcart_1D_action_space_pomdp() = POMDP_Planner_1D_action_space(0.9,2.0,-100.0,1.0,1.0,1000.0,7.0,env_right_now,1)
 discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,terminal_cart_state);
 actions(::POMDP_Planner_1D_action_space) = [-1.0, 0.0, 1.0, -10.0]
 
-solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning)),
-        calculate_upper_bound_value_pomdp_planning, check_terminal=true),K=100,D=50,T_max=0.5, tree_in_info=true)
+solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
+        calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=100,D=50,T_max=0.5, tree_in_info=true)
 planner = POMDPs.solve(solver, golfcart_1D_action_space_pomdp());
 m = golfcart_1D_action_space_pomdp()
 
-all_gif_environments, all_observed_environments, all_generated_beliefs, all_generated_trees,
-            all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart = run_one_simulation(env_right_now)
+astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs,
+    astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_number_risks,
+    astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart = run_one_simulation(env_right_now, MersenneTwister(17))
 
-anim = @animate for i ∈ 1:length(all_observed_environments)
-    display_env(all_observed_environments[i]);
-    savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
+anim = @animate for i ∈ 1:length(astar_1D_all_observed_environments)
+    display_env(astar_1D_all_observed_environments[i]);
+    savefig("./plots_reusing_hybrid_astar_path_1d_action_space_speed_pomdp_planner/plot_"*string(i)*".png")
 end
 gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 5)
