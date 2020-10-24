@@ -81,7 +81,7 @@ end
 
 function update_human_position_pomdp_planning(human, world, time_step, rng)
 
-    rand_num = (rand(rng) - 0.5)*0.1
+    rand_num = (rand(rng) - 0.5)*0.2
 
     #First Quadrant
     if(human.goal.x >= human.x && human.goal.y >= human.y)
@@ -178,7 +178,7 @@ function update_cart_position_pomdp_planning_2D_action_space(current_cart_positi
             end
             push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
             current_x, current_y,current_theta = new_x,new_y,new_theta
-            if(current_x>env.length || current_y>env.breadth || current_x<0.0 || current_y<0.0)
+            if(current_x>world.length || current_y>world.breadth || current_x<0.0 || current_y<0.0)
                 return cart_path
             end
         end
@@ -235,39 +235,9 @@ function speed_reward_pomdp_planning_2D_action_space(s, max_speed)
     return t
 end
 
-# Penalty for excessive acceleration and deceleration
-function unsmooth_motion_penalty_pomdp_planning_2D_action_space(s,a,sp)
-    # if(sp.cart.x==-100.0 && sp.cart.y==-100.0)
-    #     return 0.0
-    if(a[2]!=0.0)
-        return -5.0
-    else
-        return 0.0
-    end
-end
-
-# function closeness_to_walls_penalty(x,y,dist_threshold,close_to_wall_penalty)
-#     if( (abs(x-100.0) < dist_threshold) || (abs(y-100.0) < dist_threshold) || (x < dist_threshold) || (y < dist_threshold) )
-#         return close_to_wall_penalty
-#     else
-#         return 0.0
-#     end
-# end
-
-# Function not needed because it uses obstacle_collision_flag to check if wall collision occured or not and the
-# obstacle_collision_penalty_pomdp_planning_2D_action_space function already does that for you.
-function wall_collision_penalty_pomdp_planning_2D_action_space(wall_collision_flag, penalty)
-    if( wall_collision_flag )
-        return penalty
-    else
-        return 0.0
-    end
-end
-
-
 function immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, penalty)
     if(immediate_stop_flag)
-        return penalty/2
+        return penalty/2.0
     else
         return 0.0
     end
@@ -291,11 +261,13 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     new_human_states = human_state[]
     observed_positions = location[]
 
-    if(is_within_range(location(s.cart.x,s.cart.y), s.cart.goal, m.cart_goal_reached_distance_threshold))
+    if(is_within_range_check_with_points(s.cart.x,s.cart.y, s.cart.goal.x, s.cart.goal.y, m.cart_goal_reached_distance_threshold))
+        #println("Goal reached")
         new_cart_position = (-100.0, -100.0, -100.0)
         cart_reached_goal_flag = true
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
     elseif( (s.cart.x>m.world.length) || (s.cart.y>m.world.breadth) || (s.cart.x<0.0) || (s.cart.y<0.0) )
+        #print("Running into wall")
         new_cart_position = (-100.0, -100.0, -100.0)
         collision_with_obstacle_flag = true
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
@@ -315,34 +287,30 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
             collision_with_obstacle_flag = true
             new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
         else
-            for position in cart_path
-                for human in s.pedestrians
-                    if( is_within_range_check_with_points( position[1], position[2], human.x, human.y, m.pedestrian_distance_threshold ) )
-                        #@show("Collision happened",s)
-                        new_cart_position = (-100.0, -100.0, -100.0)
-                        collision_with_pedestrian_flag = true
+            if(new_cart_velocity != 0.0 || new_cart_velocity == 0.0 )
+                for position in cart_path
+                    for human in s.pedestrians
+                        if( is_within_range_check_with_points( position[1], position[2], human.x, human.y, m.pedestrian_distance_threshold ) )
+                            new_cart_position = (-100.0, -100.0, -100.0)
+                            collision_with_pedestrian_flag = true
+                            break
+                        end
+                    end
+                    for obstacle in m.world.obstacles
+                        if( is_within_range_check_with_points( position[1], position[2], obstacle.x, obstacle.y, obstacle.r + m.obstacle_distance_threshold ) )
+                            new_cart_position = (-100.0, -100.0, -100.0)
+                            collision_with_obstacle_flag = true
+                            break
+                        end
+                    end
+                    if(collision_with_pedestrian_flag || collision_with_obstacle_flag)
                         break
                     end
-                end
-                for obstacle in m.world.obstacles
-                    if( is_within_range_check_with_points( position[1], position[2], obstacle.x, obstacle.y, obstacle.r + m.obstacle_distance_threshold ) )
-                        new_cart_position = (-100.0, -100.0, -100.0)
-                        collision_with_obstacle_flag = true
-                        break
-                    end
-                end
-                if(collision_with_pedestrian_flag || collision_with_obstacle_flag)
-                    break
                 end
             end
         end
-        # if(a[2]==1.0)
-        #     println("NCV inside " * string(new_cart_velocity))
-        # end
+
     end
-    # if(a[2]==1.0)
-    #     println("NCV outside " * string(new_cart_velocity))
-    # end
     cart_new_state = cart_state(new_cart_position[1], new_cart_position[2], new_cart_position[3], new_cart_velocity, s.cart.L, s.cart.goal)
 
     # Simulate all the pedestrians
@@ -359,28 +327,26 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     sp = POMDP_state_2D_action_space(cart_new_state, new_human_states)
     # Generated Observation
     o = observed_positions
+
     # R(s,a): Reward for being at state s and taking action a
+    #Penalize if collision with pedestrian
+    r = pedestrian_collision_penalty_pomdp_planning_2D_action_space(collision_with_pedestrian_flag, m.pedestrian_collision_penalty)
+    #println("Reward from collision with pedestrian", r)
+    #Penalize if collision with obstacle
+    r += obstacle_collision_penalty_pomdp_planning_2D_action_space(collision_with_obstacle_flag, m.obstacle_collision_penalty)
+    #println("Reward from collision with obstacle", r)
+    #Reward if reached goal
+    r += goal_reward_pomdp_planning_2D_action_space(s, m.goal_reward_distance_threshold, cart_reached_goal_flag, m.goal_reward)
+    #println("Reward from goal ", r)
+    #Penalize if going slow when it can go fast
+    r += speed_reward_pomdp_planning_2D_action_space(s, m.max_cart_speed)
+    #println("Reward from not traveling at max_speed ", r)
+    #Penalize if had to apply sudden brakes
+    r += immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, m.pedestrian_collision_penalty)
+    #println("Reward if you had to apply immediate brakes", r)
+    #Penalty for longer duration paths
+    r -= 1.0
 
-    # println( pedestrian_collision_penalty_pomdp_planning_2D_action_space(collision_with_pedestrian_flag, m.pedestrian_collision_penalty) )
-    # println( obstacle_collision_penalty_pomdp_planning_2D_action_space(collision_with_obstacle_flag, m.obstacle_collision_penalty) )
-    # println( goal_reward_pomdp_planning_2D_action_space(s, m.goal_reward_distance_threshold, cart_reached_goal_flag, m.goal_reward) )
-    # println( speed_reward_pomdp_planning_2D_action_space(s, m.max_cart_speed) )
-    # println( unsmooth_motion_penalty_pomdp_planning_2D_action_space(s,a,sp) )
-    #
-    r = pedestrian_collision_penalty_pomdp_planning_2D_action_space(collision_with_pedestrian_flag, m.pedestrian_collision_penalty) +
-        obstacle_collision_penalty_pomdp_planning_2D_action_space(collision_with_obstacle_flag, m.obstacle_collision_penalty) +
-        goal_reward_pomdp_planning_2D_action_space(s, m.goal_reward_distance_threshold, cart_reached_goal_flag, m.goal_reward) +
-        speed_reward_pomdp_planning_2D_action_space(s, m.max_cart_speed) +
-        unsmooth_motion_penalty_pomdp_planning_2D_action_space(s,a,sp);
-
-
-            #closeness_to_walls_penalty(s.cart.x,s.cart.y,m.obstacle_distance_threshold,m.obstacle_collision_penalty)
-            #immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, m.pedestrian_collision_penalty)
-    #Small Penalty for longer duration paths
-
-
-
-    r = r - 1
     #parent[sp] = s
     # if(a[2] == 1.0 )
     #     println(a)
@@ -388,14 +354,16 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     #     println(sp)
     #     println(r)
     # end
+    # if(sp.cart.x!=-100.0)
+    #     println(s.cart, a , sp.cart, r)
+    # end
     return (sp=sp, o=o, r=r)
 end
 #@code_warntype POMDPs.gen(golfcart_pomdp(), SP_POMDP_state(env.cart,env.humans), 1, MersenneTwister(1234))
 
 
+
 #************************************************************************************************
-
-
 #Upper bound value function for DESPOT
 
 function is_collision_state_pomdp_planning_2D_action_space(s,m)
@@ -422,6 +390,8 @@ function time_to_goal_pomdp_planning_2D_action_space(s,m)
 end
 
 function calculate_upper_bound_value_pomdp_planning_2D_action_space(m, b)
+
+    #@show lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=100, final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),m , b)
     value_sum = 0.0
     for (s, w) in weighted_particles(b)
         if(s.cart.x == -100.0 && s.cart.y == -100.0)
@@ -438,61 +408,91 @@ function calculate_upper_bound_value_pomdp_planning_2D_action_space(m, b)
 end
 #@code_warntype calculate_upper_bound_value(golfcart_pomdp(), initialstate_distribution(golfcart_pomdp()))
 
-
 #Lower bound policy function for DESPOT
 function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
     #Implement a reactive controller for your lower bound
-    return (0.0 , 1.0)
-    # speed_to_be_returned = 1.0
-    # best_delta_angle = 0.0
-    # d_far_threshold = 10.0
-    # d_near_threshold =  5.0
-    # first_execution_flag = true
-    # for (s, w) in weighted_particles(b)
-    #     if(s.cart.x == -100.0 && s.cart.y == -100.0)
-    #         continue
-    #     else
-    #         if(first_execution_flag)
-    #             direct_line_to_goal_angle = wrap_between_0_and_2Pi(atan(s.cart.goal.y-s.cart.y,s.cart.goal.x-s.cart.x))
-    #             delta_angles = Float64[-pi/4, -pi/6, -pi/12, 0.0, pi/12, pi/6 , pi/4]
-    #             best_delta_angle = delta_angles[1]
-    #             best_dot_product_value_so_far = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
-    #                                , ( cos(s.cart.theta+delta_angles[1]), sin(s.cart.theta+delta_angles[1]) ) )
-    #             for i in 2:length(delta_angles)
-    #                  dot_prodcut = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
-    #                                     , ( cos(s.cart.theta+delta_angles[i]), sin(s.cart.theta+delta_angles[i]) ) )
-    #                  if(dot_prodcut > best_dot_product_value_so_far)
-    #                      best_dot_product_value_so_far = dot_prodcut
-    #                      best_delta_angle = delta_angles[i]
-    #                  end
-    #             end
-    #             if(best_delta_angle != 0.0)
-    #                 return (best_delta_angle,0.0)
-    #             end
-    #             first_execution_flag = false
-    #         end
-    #         dist_to_closest_human = -200.0  #Some really big infeasible negative number (not Inf because avoid the tpe mismatch error)
-    #         for human in s.pedestrians
-    #             euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
-    #             if(euclidean_distance < dist_to_closest_human)
-    #                 dist_to_closest_human = euclidean_distance
-    #             end
-    #         end
-    #         if(dist_to_closest_human > d_far_threshold)
-    #             speed_to_be_returned = speed_to_be_returned>0.0 ? 1.0 : speed_to_be_returned
-    #         elseif (dist_to_closest_human < d_near_threshold)
-    #             speed_to_be_returned = -1.0
-    #         else
-    #             speed_to_be_returned = speed_to_be_returned>-1.0 ? 0.0 : speed_to_be_returned
-    #         end
-    #         if(speed_to_be_returned == -1.0)
-    #             return (0.0,speed_to_be_returned)
-    #         end
-    #     end
-    # end
-    # return (0.0,speed_to_be_returned)
+    speed_change_to_be_returned = 1.0
+    best_delta_angle = 0.0
+    d_far_threshold = 5.0
+    d_near_threshold = 2.0
+    #This bool is also used to check if all the states in the belief are terminal or not.
+    first_execution_flag = true
+
+    for (s, w) in weighted_particles(b)
+        if(s.cart.x == -100.0 && s.cart.y == -100.0)
+            continue
+        else
+            if(first_execution_flag)
+                direct_line_to_goal_angle = wrap_between_0_and_2Pi(atan(s.cart.goal.y-s.cart.y,s.cart.goal.x-s.cart.x))
+                delta_angles = Float64[-pi/4, -pi/6, -pi/12, 0.0, pi/12, pi/6 , pi/4]
+                best_delta_angle = delta_angles[1]
+                best_dot_product_value_so_far = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
+                                   , ( cos(s.cart.theta+delta_angles[1]), sin(s.cart.theta+delta_angles[1]) ) )
+                for i in 2:length(delta_angles)
+                     dot_prodcut = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
+                                        , ( cos(s.cart.theta+delta_angles[i]), sin(s.cart.theta+delta_angles[i]) ) )
+                     if(dot_prodcut > best_dot_product_value_so_far)
+                         best_dot_product_value_so_far = dot_prodcut
+                         best_delta_angle = delta_angles[i]
+                     end
+                end
+                first_execution_flag = false
+            else
+                dist_to_closest_human = 200.0  #Some really big infeasible negative number (not Inf because avoid the tpe mismatch error)
+                for human in s.pedestrians
+                    euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
+                    if(euclidean_distance < dist_to_closest_human)
+                        dist_to_closest_human = euclidean_distance
+                    end
+                    if(dist_to_closest_human < d_near_threshold)
+                        return (0.0,-1.0)
+                    end
+                end
+                if(dist_to_closest_human > d_far_threshold)
+                    chosen_acceleration = 1.0
+                else
+                    chosen_acceleration = 0.0
+                end
+                if(chosen_acceleration < speed_change_to_be_returned)
+                    speed_change_to_be_returned = chosen_acceleration
+                end
+            end
+        end
+    end
+
+    #This condition is true only when all the states in the belief are terminal. In that case, just return (0.0,0.0)
+    if(first_execution_flag == true)
+        return (0.0,0.0)
+    end
+
+    #This means all humans are away and you can accelerate.
+    if(speed_change_to_be_returned == 1.0)
+        return (0.0,speed_change_to_be_returned)
+    end
+
+    #If code has reached this point, then the best action is to maintain your current speed.
+    #We have already found the best steering angle to take.
+    return (best_delta_angle,0.0)
 end
 
+function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)
+    #print("HI")
+    # #sleep(5)
+    # print(b.depth)
+    value_sum = 0.0
+    for (s, w) in weighted_particles(b)
+        cart_distance_to_goal = sqrt( (s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2 )
+        if(cart_distance_to_goal > 1.0)
+            value_sum += w*(1/cart_distance_to_goal)*m.goal_reward
+        end
+    end
+    #println(value_sum)
+    return value_sum
+end
+
+
+
+#************************************************************************************************
 #Functions for debugging lb>ub error
 function debug_is_collision_state_pomdp_planning_2D_action_space(s,m)
 
@@ -518,8 +518,9 @@ end
 
 function debug_golfcart_upper_bound_2D_action_space(m,b)
 
-    lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=50),m , b)
-
+    # lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=100),m , b)
+    lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=100, final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),m , b)
+    #@show(lower)
     value_sum = 0.0
     for (s, w) in weighted_particles(b)
         if (s.cart.x == -100.0 && s.cart.y == -100.0)
