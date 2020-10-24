@@ -361,8 +361,8 @@ end
 function calculate_lower_bound_policy_pomdp_planning_1D_action_space(b)
     #Implement a reactive controller for your lower bound
     action_to_be_returned = 1.0
-    d_far_threshold = 6.0
-    d_near_threshold = 3.0
+    d_far_threshold = 5.0
+    d_near_threshold = 2.0
     for (s, w) in weighted_particles(b)
         dist_to_closest_human = 200.0  #Some big number (not Inf) that is not feasible
         for human in s.pedestrians
@@ -403,7 +403,7 @@ end
 
 function debug_golfcart_upper_bound_1D_action_space(m,b)
 
-    lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space), max_depth=50),m , b)
+    lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space), max_depth=100),m , b)
 
     value_sum = 0.0
     for (s, w) in weighted_particles(b)
