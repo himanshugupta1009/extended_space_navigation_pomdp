@@ -808,3 +808,22 @@ function run_one_simulation_old(env_right_now)
 
     return all_observed_environments, all_generated_beliefs, all_generated_trees,all_risky_scenarios,number_risks,number_of_sudden_stops,time_taken_by_cart
 end
+
+
+function closeness_to_walls_penalty(x,y,dist_threshold,close_to_wall_penalty)
+    if( (abs(x-100.0) < dist_threshold) || (abs(y-100.0) < dist_threshold) || (x < dist_threshold) || (y < dist_threshold) )
+        return close_to_wall_penalty
+    else
+        return 0.0
+    end
+end
+
+# Function not needed because it uses obstacle_collision_flag to check if wall collision occured or not and the
+# obstacle_collision_penalty_pomdp_planning_2D_action_space function already does that for you.
+function wall_collision_penalty_pomdp_planning_2D_action_space(wall_collision_flag, penalty)
+    if( wall_collision_flag )
+        return penalty
+    else
+        return 0.0
+    end
+end
