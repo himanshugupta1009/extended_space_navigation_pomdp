@@ -5,19 +5,19 @@ using Random
 using LinearAlgebra
 include("utils.jl")
 
-# mutable struct graph_node
-#     x::Float64
-#     y::Float64
-#     theta::Float64
-#     actual_cost::Float64
-#     heuristic_cost::Float64
-#     action_taken_to_reach_here::Float64
-#     discrete_x::Float64
-#     discrete_y::Float64
-#     discrete_theta::Float64
-#     parent::Union{graph_node,Nothing}
-#     time_stamp::Float64
-# end
+mutable struct graph_node
+    x::Float64
+    y::Float64
+    theta::Float64
+    actual_cost::Float64
+    heuristic_cost::Float64
+    action_taken_to_reach_here::Float64
+    discrete_x::Float64
+    discrete_y::Float64
+    discrete_theta::Float64
+    parent::Union{graph_node,Nothing}
+    time_stamp::Float64
+end
 
 function is_goal(node, goal_x, goal_y, threshold)
     euclidean_distance =  ( (node.x - goal_x)^2 + (node.y - goal_y)^2 )^ 0.5
@@ -144,7 +144,6 @@ function get_expected_human_position_at_time_t_hybrid_astar_planning(human_x, hu
     return (new_x,new_y)
 end
 
-
 function get_action_cost(environment, humans_to_avoid, final_x::Float64, final_y::Float64, obs_cost::Float64, pedestrian_cost::Float64, action::Float64, current_node_time_step::Float64)
     total_cost::Float64 = 0.0
 
@@ -186,6 +185,7 @@ function get_action_cost(environment, humans_to_avoid, final_x::Float64, final_y
                 return Inf
             else
                 total_cost += pedestrian_cost * (1/euclidean_distance)
+                #continue
             end
         else
             inferred_human_goal = environment.goals[max_ele_index]
@@ -200,34 +200,30 @@ function get_action_cost(environment, humans_to_avoid, final_x::Float64, final_y
             elseif(distance_of_cart_from_expected_human_position <= human_dist_threshold)
                 return Inf
             else
-                total_cost += pedestrian_cost * (1/distance_of_cart_from_expected_human_position)
+                #total_cost += pedestrian_cost * (1/distance_of_cart_from_expected_human_position)
+                continue
             end
         end
     end
 
     #Cost from no change in steering angle
-    if(action == 0.0)
-       total_cost += -1.0
-    end
+    # if(action == 0.0)
+    #    total_cost += -1.0
+    # end
 
     #Cost from Long Paths
     total_cost += 1
 
     return total_cost
-
 end
 
 function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env,humans_to_avoid)
 
     #Action Set
     set_of_delta_angles = Array{Float64,1}([0.0])
-#     for i in 1:3
-#         push!(set_of_delta_angles, float(i*5*pi/180))
-#         push!(set_of_delta_angles, float(-i*5*pi/180))
-#     end
-    for i in 1:10
-        push!(set_of_delta_angles, float(2*i*pi/180))
-        push!(set_of_delta_angles, float(-2*i*pi/180))
+    for i in 1:9
+        push!(set_of_delta_angles, float(-5*i*pi/180))
+        push!(set_of_delta_angles, float(5*i*pi/180))
     end
 
     #delta_t = 1 second
@@ -303,7 +299,7 @@ function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env
                 open[node_key] = new_node.heuristic_cost + new_node.actual_cost
             end
         end
-        if(time()- start_time >= 0.3)
+        if(time()- start_time >= 0.2)
             @show("Time exceeded")
             return path
         end
