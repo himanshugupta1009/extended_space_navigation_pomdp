@@ -21,7 +21,6 @@ function is_human_present_in_the_list(human,old_lidar_data)
     return -1
 end
 
-
 function update_belief(current_belief,all_goals_list, old_cart_lidar_data, new_cart_lidar_data)
     #@show("INSIDE",current_belief, old_cart_lidar_data, new_cart_lidar_data,"*****")
     new_belief = Array{human_probability_over_goals,1}()
