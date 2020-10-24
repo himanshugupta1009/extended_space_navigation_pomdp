@@ -5,7 +5,7 @@ function debug_ub_lb_error_1D_action_space(which_env)
     pomdp_ub_debugging_env = deepcopy(astar_1D_all_observed_environments[which_env])
     current_belief_debugging = astar_1D_all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug() = POMDP_Planner_1D_action_space(0.9,2.0,-100.0,1.0,1.0,1000.0,7.0,pomdp_ub_debugging_env,1)
+    golfcart_pomdp_debug() = POMDP_Planner_1D_action_space(0.99,1.0,-100.0,1.0,1.0,1000.0,7.0,pomdp_ub_debugging_env,1)
     discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,terminal_cart_state);
     actions(::POMDP_Planner_1D_action_space) = [-1.0, 0.0, 1.0, -10.0]

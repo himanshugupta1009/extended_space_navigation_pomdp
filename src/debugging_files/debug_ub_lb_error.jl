@@ -1,17 +1,17 @@
-bad = []
+#bad = []
 
 
-function debug_ub_lb_error_2D_action_space(which_env)
+function debug_ub_lb_error_2D_action_space(all_observed_environments,all_generated_beliefs,which_env)
     pomdp_ub_debugging_env = deepcopy(all_observed_environments[which_env])
     current_belief_debugging = all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug() =  POMDP_Planner_2D_action_space(0.9,2.0,-100.0,2.0,-100.0,1.0,1.0,1000.0,7.0,pomdp_ub_debugging_env,1)
+    golfcart_pomdp_debug() =  POMDP_Planner_2D_action_space(0.99,1.0,-100.0,2.0,-100.0,1.0,1.0,100.0,7.0,pomdp_ub_debugging_env,1)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
-    isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,terminal_cart_state);
+    isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
 
-    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space)),
-            debug_golfcart_upper_bound_2D_action_space, check_terminal=true),K=100,D=50,T_max=0.8, tree_in_info=true)
+    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), 100, reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
+            debug_golfcart_upper_bound_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true)
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp());
 
     m_ub_debugging = golfcart_pomdp_debug()
@@ -21,14 +21,14 @@ function debug_ub_lb_error_2D_action_space(which_env)
     @show(a)
 end
 
-function print_belief_states(which_env,bad,loc)
+function print_belief_states(all_observed_environments,all_generated_beliefs,which_env,bad,loc)
 
     pomdp_ub_debugging_env = deepcopy(all_observed_environments[which_env])
     current_belief_debugging = all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug() = POMDP_Planner_2D_action_space(0.9,2.0,-100.0,2.0,-100.0,1.0,1.0,1000.0,7.0,pomdp_ub_debugging_env,1)
+    golfcart_pomdp_debug() = POMDP_Planner_2D_action_space(0.99,1.0,-100.0,2.0,-100.0,1.0,1.0,100.0,7.0,pomdp_ub_debugging_env,1)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
-    isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,terminal_cart_state);
+    isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space)),
@@ -54,7 +54,7 @@ function print_belief_states(which_env,bad,loc)
             value_sum += w*((discount(m_ub_debugging)^time_to_goal_pomdp_planning_2D_action_space(s,m_ub_debugging))*m_ub_debugging.goal_reward)
             @show(value_sum)
         end
-        temp = POMDPs.gen(m_ub_debugging, s, (0.0,1.0), MersenneTwister(1234))
+        temp = POMDPs.gen(m_ub_debugging, s, (-10.0,-10.0), MersenneTwister(1234))
         @show(POMDPs.isterminal(m_ub_debugging,s))
         println(temp)
         #search_state = s
