@@ -81,7 +81,7 @@ end
 
 function update_human_position_pomdp_planning(human, world, time_step, rng)
 
-    rand_num = (rand(rng) - 0.5)*0.2
+    rand_num = (rand(rng) - 0.5)*0.1
     #First Quadrant
     if(human.goal.x >= human.x && human.goal.y >= human.y)
         if(human.goal.x == human.x)
