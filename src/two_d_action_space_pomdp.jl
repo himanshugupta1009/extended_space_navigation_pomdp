@@ -1,5 +1,4 @@
 #Load Required Packages
-
 using ProfileView
 using POMDPs
 using Distributions
@@ -244,7 +243,6 @@ function immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_fl
 end
 
 
-
 #************************************************************************************************
 #POMDP Generative Model
 
@@ -279,7 +277,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         if(a[2] == -10.0)
             immediate_stop_flag = true
         end
-        new_cart_velocity =clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
+        new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
         cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a[1], new_cart_velocity, m.world)
         new_cart_position = cart_path[end]
         if( (new_cart_position[1]>m.world.length) || (new_cart_position[2]>m.world.breadth) || (new_cart_position[1]<0.0) || (new_cart_position[2]<0.0) )

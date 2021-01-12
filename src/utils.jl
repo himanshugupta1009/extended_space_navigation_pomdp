@@ -189,7 +189,7 @@ function get_count_number_of_risks(world)
     if(world.cart.v>=1.0)
         for human in world.cart_lidar_data
             euclidean_distance = sqrt( (human.x - world.cart.x)^2 + (human.y - world.cart.y)^2 )
-            if(euclidean_distance<=0.3)
+            if(euclidean_distance<=0.5)
                 println( "A risky scenario encountered and the distance is : ", euclidean_distance )
                 risks += 1
             end
@@ -272,7 +272,7 @@ end
 # cart_lidar_data of the new world
 function update_belief_from_old_world_and_new_world(current_belief, old_world, new_world)
     updated_belief = update_belief(current_belief, old_world.goals,
-        old_world.cart_lidar_data, new_world.cart_lidar_data)
+        old_world.complete_cart_lidar_data, new_world.complete_cart_lidar_data)
     return updated_belief
 end
 
@@ -298,6 +298,19 @@ function update_current_belief_by_creating_temp_world(old_world, new_world, old_
         temp_world.cart_lidar_data, new_world.cart_lidar_data)
 
     return final_updated_belief
+end
+
+function get_belief_for_selected_humans_from_belief_over_complete_lidar_data(belief_over_complete_lidar_data, complete_lidar_data, shortlisted_lidar_data)
+    shortlisted_belief = Array{human_probability_over_goals,1}();
+    for human in shortlisted_lidar_data
+        for index in 1:length(complete_lidar_data)
+            if(human.id == complete_lidar_data[index].id)
+                push!(shortlisted_belief, belief_over_complete_lidar_data[index])
+                break;
+            end
+        end
+    end
+    return shortlisted_belief
 end
 
 function respawn_humans_in_environment(world, lidar_range, num_humans_to_care_about_while_pomdp_planning,

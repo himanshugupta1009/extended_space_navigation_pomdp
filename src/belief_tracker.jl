@@ -13,9 +13,9 @@ function calculate_human_dist_from_all_goals(human_position,list_of_goals)
 end
 
 function is_human_present_in_the_list(human,old_lidar_data)
-    for human_old_data_index in 1:length(old_lidar_data)
-        if(human.id == old_lidar_data[human_old_data_index].id)
-            return human_old_data_index
+    for human_old_lidar_data_index in 1:length(old_lidar_data)
+        if(human.id == old_lidar_data[human_old_lidar_data_index].id)
+            return human_old_lidar_data_index
         end
     end
     return -1
