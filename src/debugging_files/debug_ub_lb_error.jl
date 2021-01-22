@@ -5,16 +5,16 @@ function debug_ub_lb_error_2D_action_space(all_observed_environments,all_generat
     pomdp_ub_debugging_env = deepcopy(all_observed_environments[which_env])
     current_belief_debugging = all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug() =  POMDP_Planner_2D_action_space(0.99,1.0,-100.0,2.0,-100.0,1.0,1.0,100.0,7.0,pomdp_ub_debugging_env,1)
+    golfcart_pomdp_debug =  POMDP_Planner_2D_action_space(0.99,1.0,-100.0,2.0,-100.0,1.0,1.0,100.0,7.0,pomdp_ub_debugging_env)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), 100, reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
             debug_golfcart_upper_bound_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true)
-    planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp());
+    planner = POMDPs.solve(solver, golfcart_pomdp_debug);
 
-    m_ub_debugging = golfcart_pomdp_debug()
+    m_ub_debugging = golfcart_pomdp_debug
     #b_ub_debugging = initialstate_distribution(m_ub_debugging,current_belief_debugging)
     b_ub_debugging = POMDP_2D_action_space_state_distribution(m_ub_debugging.world,current_belief_debugging)
     a, info = action_info(planner, b_ub_debugging);
@@ -26,16 +26,16 @@ function print_belief_states(all_observed_environments,all_generated_beliefs,whi
     pomdp_ub_debugging_env = deepcopy(all_observed_environments[which_env])
     current_belief_debugging = all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug() = POMDP_Planner_2D_action_space(0.99,1.0,-100.0,2.0,-100.0,1.0,1.0,100.0,7.0,pomdp_ub_debugging_env,1)
+    golfcart_pomdp_debug = POMDP_Planner_2D_action_space(0.99,1.0,-100.0,2.0,-100.0,1.0,1.0,100.0,7.0,pomdp_ub_debugging_env)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space)),
             debug_golfcart_upper_bound_2D_action_space, check_terminal=true),K=100,D=50,T_max=0.8, tree_in_info=true)
-    planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp());
+    planner = POMDPs.solve(solver, golfcart_pomdp_debug);
 
-    m_ub_debugging = golfcart_pomdp_debug()
+    m_ub_debugging = golfcart_pomdp_debug
 
     value_sum = 0.0
     for (s,w) in weighted_particles(bad[loc][3])
