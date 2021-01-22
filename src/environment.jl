@@ -108,7 +108,7 @@ function display_env(env::experiment_environment)
 end
 
 #Define the Environment
-function generate_environment_no_obstacle(number_of_humans, user_defined_rng)
+function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
 
     world_length = 100.0
     world_breadth = 100.0
@@ -118,19 +118,23 @@ function generate_environment_no_obstacle(number_of_humans, user_defined_rng)
     g4 = location(world_length,0.0)
     cart_goal = location(world_length,70.0)
     all_goals_list = [g1,g2,g3,g4]
-
+    all_obstacle_list = []
     max_num_humans = number_of_humans
+
+    golfcart = cart_state(1.0,20.0,0.0,0.0,0.5,cart_goal)
+    initial_cart_lidar_data = Array{human_state,1}()
+    initial_complete_cart_lidar_data = Array{human_state,1}()
+
     human_state_start_list = Array{human_state,1}()
     for i in 1:max_num_humans
         human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
                                                 , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        while(is_within_range_check_with_points(human.x,human.y, golfcart.x, golfcart.y, 5.0))
+            human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                    , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        end
         push!(human_state_start_list,human)
     end
-
-    all_obstacle_list = []
-    golfcart = cart_state(1.0,20.0,0.0,0.0,0.5,cart_goal)
-    initial_cart_lidar_data = Array{human_state,1}()
-    initial_complete_cart_lidar_data = Array{human_state,1}()
 
     world = experiment_environment(100.0,100.0,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
@@ -148,16 +152,7 @@ function generate_environment_circular_obstacles(number_of_humans,user_defined_r
     g3 = location(world_length,world_breadth)
     g4 = location(world_length,0.0)
     cart_goal = location(world_length,70.0)
-    #terminal_cart_state = location(-100.0,-100.0)
     all_goals_list = [g1,g2,g3,g4]
-
-    max_num_humans = number_of_humans
-    human_state_start_list = Array{human_state,1}()
-    for i in 1:max_num_humans
-        human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
-                                                , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
-        push!(human_state_start_list,human)
-    end
 
     o1 = obstacle_location(50.0,70.0,5.0)
     o2 = obstacle_location(25.0,70.0,5.0)
@@ -174,9 +169,21 @@ function generate_environment_circular_obstacles(number_of_humans,user_defined_r
     # all_obstacle_list = [o1,o2,o3,o4]
     all_obstacle_list = [o1,o2,o3,o4,o5,o6]
 
-    golfcart = cart_state(0.0,20.0,0.0,0.0,1.0,cart_goal)
+    golfcart = cart_state(1.0,20.0,0.0,0.0,1.0,cart_goal)
     initial_cart_lidar_data = Array{human_state,1}()
     initial_complete_cart_lidar_data = Array{human_state,1}()
+
+    max_num_humans = number_of_humans
+    human_state_start_list = Array{human_state,1}()
+    for i in 1:max_num_humans
+        human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        while(is_within_range_check_with_points(human.x,human.y, golfcart.x, golfcart.y, 5.0))
+            human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                    , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        end
+        push!(human_state_start_list,human)
+    end
 
     world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
