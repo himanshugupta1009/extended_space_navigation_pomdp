@@ -1,3 +1,4 @@
+
 #Load Required Packages
 using ProfileView
 using POMDPs
@@ -30,7 +31,6 @@ mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_acti
     goal_reward::Float64
     max_cart_speed::Float64
     world::experiment_environment
-    start_path_index::Int64
 end
 
 #Function to check terminal state
@@ -149,35 +149,34 @@ end
 #@code_warntype update_human_position_pomdp_planning(env.humans[2], env, 1.0, MersenneTwister(1234))
 
 
-
 #************************************************************************************************
 #Simulating the cart one step forward in POMDP planning according to its new speed
 
-function update_cart_position_pomdp_planning_2D_action_space(current_cart_position, delta_angle, new_cart_speed, world)
-    current_x, current_y, current_theta = current_cart_position.x, current_cart_position.y, current_cart_position.theta
+function update_cart_position_pomdp_planning_2D_action_space(current_cart, delta_angle, new_cart_speed, world_length, world_breadth )
+    current_x, current_y, current_theta = current_cart.x, current_cart.y, current_cart.theta
     cart_path = Tuple{Float64,Float64,Float64}[]
     if(new_cart_speed == 0.0)
          push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
     else
         push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
         arc_length = new_cart_speed
-        time_interval = 1.0/new_cart_speed
-        steering_angle = atan((world.cart.L*delta_angle)/arc_length)
-        for i in (1:new_cart_speed)
+        num_time_intervals = 2
+        steering_angle = atan((current_cart.L*delta_angle)/arc_length)
+        for i in (1:num_time_intervals)
             #@show(starting_index, length(world.cart_hybrid_astar_path))
             if(steering_angle == 0.0)
                 new_theta = current_theta
-                new_x = current_x + arc_length*cos(current_theta)*time_interval
-                new_y = current_y + arc_length*sin(current_theta)*time_interval
+                new_x = current_x + arc_length*cos(current_theta)*(1/num_time_intervals)
+                new_y = current_y + arc_length*sin(current_theta)*(1/num_time_intervals)
             else
-                new_theta = current_theta + (arc_length * tan(steering_angle) * time_interval / world.cart.L)
+                new_theta = current_theta + (arc_length * tan(steering_angle) * (1/num_time_intervals) / current_cart.L)
                 new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + ((world.cart.L / tan(steering_angle)) * (sin(new_theta) - sin(current_theta)))
-                new_y = current_y + ((world.cart.L / tan(steering_angle)) * (cos(current_theta) - cos(new_theta)))
+                new_x = current_x + ((current_cart.L / tan(steering_angle)) * (sin(new_theta) - sin(current_theta)))
+                new_y = current_y + ((current_cart.L / tan(steering_angle)) * (cos(current_theta) - cos(new_theta)))
             end
             push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
             current_x, current_y,current_theta = new_x,new_y,new_theta
-            if(current_x>world.length || current_y>world.breadth || current_x<0.0 || current_y<0.0)
+            if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
                 return cart_path
             end
         end
@@ -185,8 +184,8 @@ function update_cart_position_pomdp_planning_2D_action_space(current_cart_positi
     #@show(current_cart_position,steering_angle, new_cart_speed, cart_path)
     return cart_path
 end
-#@code_warntype update_cart_position_pomdp_planning(env.cart,pi/18, 5.0, env)
-#update_cart_position_pomdp_planning(env.cart, pi/18, 5.0, env)
+#@code_warntype update_cart_position_pomdp_planning_2D_action_space(env.cart, pi/12, 5.0, 100.0,100.0)
+#update_cart_position_pomdp_planning_2D_action_space(env.cart, pi/12, 5.0, 100.0,100.0)
 
 
 
@@ -264,11 +263,13 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         new_cart_position = (-100.0, -100.0, -100.0)
         cart_reached_goal_flag = true
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
+        push!(observed_positions, location(-25.0,-25.0))
     elseif( (s.cart.x>m.world.length) || (s.cart.y>m.world.breadth) || (s.cart.x<0.0) || (s.cart.y<0.0) )
         #print("Running into wall")
         new_cart_position = (-100.0, -100.0, -100.0)
         collision_with_obstacle_flag = true
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
+        push!(observed_positions, location(-50.0,-50.0))
     # elseif(a[2] == -10.0)
     #     new_cart_position = (-100.0, -100.0, -100.0)
     #     immediate_stop_flag = true
@@ -278,32 +279,90 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
             immediate_stop_flag = true
         end
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
-        cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a[1], new_cart_velocity, m.world)
+        cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a[1], new_cart_velocity, m.world.length, m.world.breadth)
         new_cart_position = cart_path[end]
         if( (new_cart_position[1]>m.world.length) || (new_cart_position[2]>m.world.breadth) || (new_cart_position[1]<0.0) || (new_cart_position[2]<0.0) )
             new_cart_position = (-100.0, -100.0, -100.0)
             collision_with_obstacle_flag = true
             new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
+            push!(observed_positions, location(-50.0,-50.0))
         else
-            if(new_cart_velocity != 0.0 || new_cart_velocity == 0.0 )
-                for position in cart_path
-                    for human in s.pedestrians
-                        if( is_within_range_check_with_points( position[1], position[2], human.x, human.y, m.pedestrian_distance_threshold ) )
-                            new_cart_position = (-100.0, -100.0, -100.0)
-                            collision_with_pedestrian_flag = true
-                            break
-                        end
-                    end
+            #Cart is moving
+            if(new_cart_velocity != 0.0 )
+                #If cart moved in an arc
+                if( a[1] != 0.0 )
+                    arc_cx, arc_cy, arc_cr = find_center_and_radius(cart_path[1][1],cart_path[1][2],cart_path[2][1],cart_path[2][2],cart_path[end][1],cart_path[end][2])
+                    #Check if the cart's arc intersects with any static obstacle
                     for obstacle in m.world.obstacles
-                        if( is_within_range_check_with_points( position[1], position[2], obstacle.x, obstacle.y, obstacle.r + m.obstacle_distance_threshold ) )
+                        if( find_if_two_circles_intersect(arc_cx, arc_cy, arc_cr, obstacle.x, obstacle.y,obstacle.r + m.obstacle_distance_threshold) )
                             new_cart_position = (-100.0, -100.0, -100.0)
                             collision_with_obstacle_flag = true
+                            push!(observed_positions, location(-50.0,-50.0))
                             break
                         end
                     end
-                    if(collision_with_pedestrian_flag || collision_with_obstacle_flag)
+                    #Simulate the pedestrians and check if the cart's arc intersects with any pedestrian's trajectory.
+                    if( !collision_with_obstacle_flag )
+                        for human in s.pedestrians
+                            modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
+                            if( find_if_circle_and_line_segment_intersect(arc_cx, arc_cy, arc_cr, human.x, human.y, modified_human_state.x, modified_human_state.y) )
+                                new_cart_position = (-100.0, -100.0, -100.0)
+                                collision_with_pedestrian_flag = true
+                                new_human_states = human_state[]
+                                observed_positions = location[ location(-50.0,-50.0) ]
+                                break
+                            else
+                                push!(new_human_states, modified_human_state)
+                                push!(observed_positions, observed_location)
+                            end
+                        end
+                    end
+                #If cart moved in a straight line
+                else
+                    #Check if the cart's straight line path intersects with any static obstacle
+                    for obstacle in m.world.obstacles
+                        if( find_if_circle_and_line_segment_intersect(obstacle.x, obstacle.y, obstacle.r + m.obstacle_distance_threshold,
+                                                                                cart_path[1][1],cart_path[1][2],cart_path[end][1],cart_path[end][2]) )
+                            new_cart_position = (-100.0, -100.0, -100.0)
+                            collision_with_obstacle_flag = true
+                            push!(observed_positions, location(-50.0,-50.0))
+                            break
+                        end
+                    end
+                    #Simulate the pedestrians and check if the cart's straight line path intersects with any pedestrian's trajectory.
+                    if( !collision_with_obstacle_flag )
+                        for human in s.pedestrians
+                            modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
+                            if( find_if_two_line_segments_intersect(cart_path[1][1],cart_path[1][2],cart_path[end][1],cart_path[end][2],
+                                                                                    human.x, human.y, modified_human_state.x, modified_human_state.y) )
+                                new_cart_position = (-100.0, -100.0, -100.0)
+                                collision_with_pedestrian_flag = true
+                                new_human_states = human_state[]
+                                observed_positions = location[ location(-50.0,-50.0) ]
+                                break
+                            else
+                                push!(new_human_states, modified_human_state)
+                                push!(observed_positions, observed_location)
+                            end
+                        end
+                    end
+                end
+            #Cart is stationary (i.e. new_cart_velocity = 0.0)
+            else
+                #Check if the cart stationary position intersects with any static obstacle
+                for obstacle in m.world.obstacles
+                    if( is_within_range_check_with_points( cart_path[1], cart_path[2], obstacle.x, obstacle.y, obstacle.r + m.obstacle_distance_threshold ) )
+                        new_cart_position = (-100.0, -100.0, -100.0)
+                        collision_with_obstacle_flag = true
+                        push!(observed_positions, location(-50.0,-50.0))
                         break
                     end
+                end
+                # Simulate all the pedestrians
+                for human in s.pedestrians
+                    modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
+                    push!(new_human_states, modified_human_state)
+                    push!(observed_positions, observed_location)
                 end
             end
         end
@@ -311,16 +370,10 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     end
     cart_new_state = cart_state(new_cart_position[1], new_cart_position[2], new_cart_position[3], new_cart_velocity, s.cart.L, s.cart.goal)
 
-    # Simulate all the pedestrians
-    for human in s.pedestrians
-        modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
-        push!(new_human_states, modified_human_state)
-        push!(observed_positions, observed_location)
-    end
-
-    # if(length(observed_positionspush!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta))))!=0)
+    # if(length(observed_positions) !=0)
     #     println(observed_positions)
     # end
+
     # Next POMDP State
     sp = POMDP_state_2D_action_space(cart_new_state, new_human_states)
     # Generated Observation
