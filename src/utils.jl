@@ -142,8 +142,8 @@ function find_if_two_line_segments_intersect(x1::Float64,y1::Float64,x2::Float64
 end
 
 function find_if_two_circles_intersect(c1x::Float64,c1y::Float64,c1r::Float64,c2x::Float64,c2y::Float64,c2r::Float64)
-    dist_c1_c2 = sqrt( (c1x - c2x)^2 + (c1y - c2y)^2 )
-    if(dist_c1_c2 > c1r + c2r)
+    dist_c1_c2 = (c1x - c2x)^2 + (c1y - c2y)^2
+    if(dist_c1_c2 > (c1r + c2r)^2 )
         return false
     else
         return true
