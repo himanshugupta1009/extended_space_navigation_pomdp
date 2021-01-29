@@ -279,7 +279,7 @@ if(run_simulation_flag)
     env_right_now = deepcopy(env)
 
     #Create POMDP for env_right_now
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.99,2.0,-100.0,1.0,-100.0,1.0,1.0,100.0,5.0,env_right_now)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.99,2.0,-100.0,1.0,-100.0,0.0,1.0,100.0,5.0,env_right_now)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
