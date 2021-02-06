@@ -251,7 +251,8 @@ end
 
 function immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, penalty)
     if(immediate_stop_flag)
-        return penalty/2.0
+        #return penalty/2.0
+        return -50.0
     else
         return 0.0
     end
@@ -315,7 +316,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
                 push!(observed_positions, observed_location)
             end
             #Cart is moving
-            if(new_cart_velocity != 0.0 || new_cart_velocity == 0.0)
+            if(new_cart_velocity != 0.0 || new_cart_velocity == 0.0 )
                 for time_index in 1:num_time_intervals+1
                     for human_index in 1:length(s.pedestrians)
                         intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
@@ -383,7 +384,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     r += immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, m.pedestrian_collision_penalty)
     #println("Reward if you had to apply immediate brakes", r)
     #Penalty for longer duration paths
-    r -= 1.0
+    #r -= 1.0
 
     #parent[sp] = s
     # if(a[2] == 1.0 )
@@ -399,6 +400,9 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     # if(r>0)
     #     @show(s,a,sp,r)
     # end
+    if(cart_reached_goal_flag)
+        @show(s, a, sp)
+    end
     return (sp=sp, o=o, r=r)
 end
 #@code_warntype POMDPs.gen(golfcart_2D_action_space_pomdp, POMDP_state_2D_action_space(env.cart,env.humans), (pi/15.0 , 1.0), MersenneTwister(1234))
@@ -483,7 +487,7 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
                 end
                 first_execution_flag = false
             else
-                dist_to_closest_human = 200.0  #Some really big infeasible negative number (not Inf because avoid the tpe mismatch error)
+                dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
                 for human in s.pedestrians
                     euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
                     if(euclidean_distance < dist_to_closest_human)
@@ -529,12 +533,13 @@ function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)
     # print(b.depth)
     value_sum = 0.0
     for (s, w) in weighted_particles(b)
-        cart_distance_to_goal = sqrt( (s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2 )
-        if(cart_distance_to_goal > 1.0)
-            value_sum += w*(1/cart_distance_to_goal)*m.goal_reward
-        end
+        # cart_distance_to_goal = sqrt( (s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2 )
+        # if(cart_distance_to_goal > 1.0)
+        #     value_sum += w*(1/cart_distance_to_goal)*m.goal_reward
+        # end
+        value_sum += w*((discount(m)^time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed))*m.goal_reward)
     end
-    #println(value_sum)
+    println("HG rules")
     return value_sum
 end
 
