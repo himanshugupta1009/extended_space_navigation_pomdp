@@ -110,18 +110,18 @@ end
 #Define the Environment
 function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
 
-    world_length = 100.0
-    world_breadth = 100.0
+    world_length = 50.0
+    world_breadth = 50.0
     g1 = location(0.0,0.0)
     g2 = location(0.0,world_breadth)
     g3 = location(world_length,world_breadth)
     g4 = location(world_length,0.0)
-    cart_goal = location(world_length,70.0)
+    cart_goal = location(world_length,30.0)
     all_goals_list = [g1,g2,g3,g4]
     all_obstacle_list = []
     max_num_humans = number_of_humans
 
-    golfcart = cart_state(1.0,20.0,0.0,0.0,0.5,cart_goal)
+    golfcart = cart_state(1.0,25.0,0.0,0.0,0.5,cart_goal)
     initial_cart_lidar_data = Array{human_state,1}()
     initial_complete_cart_lidar_data = Array{human_state,1}()
 
@@ -136,7 +136,7 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
         push!(human_state_start_list,human)
     end
 
-    world = experiment_environment(100.0,100.0,length(human_state_start_list),
+    world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
                     initial_complete_cart_lidar_data,Float64[])
 
