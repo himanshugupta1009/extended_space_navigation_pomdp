@@ -1,11 +1,11 @@
-#bad = []
+bad = []
 
 
 function debug_ub_lb_error_2D_action_space(all_observed_environments,all_generated_beliefs,which_env)
     pomdp_ub_debugging_env = deepcopy(all_observed_environments[which_env])
     current_belief_debugging = all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug =  POMDP_Planner_2D_action_space(0.99,2.0,-100.0,1.0,-100.0,0.0,1.0,100.0,5.0,pomdp_ub_debugging_env)
+    golfcart_pomdp_debug =  POMDP_Planner_2D_action_space(0.99,2.0,-1000.0,1.0,-1000.0,0.0,1.0,100.0,5.0,pomdp_ub_debugging_env)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
@@ -19,6 +19,7 @@ function debug_ub_lb_error_2D_action_space(all_observed_environments,all_generat
     b_ub_debugging = POMDP_2D_action_space_state_distribution(m_ub_debugging.world,current_belief_debugging)
     a, info = action_info(planner, b_ub_debugging);
     @show(a)
+    return info
 end
 
 function print_belief_states(all_observed_environments,all_generated_beliefs,which_env,bad,loc)
@@ -26,7 +27,7 @@ function print_belief_states(all_observed_environments,all_generated_beliefs,whi
     pomdp_ub_debugging_env = deepcopy(all_observed_environments[which_env])
     current_belief_debugging = all_generated_beliefs[which_env]
 
-    golfcart_pomdp_debug =  POMDP_Planner_2D_action_space(0.99,2.0,-100.0,1.0,-100.0,1.0,1.0,100.0,5.0,pomdp_ub_debugging_env)
+    golfcart_pomdp_debug =  POMDP_Planner_2D_action_space(0.99,2.0,-1000.0,1.0,-1000.0,1.0,1.0,100.0,5.0,pomdp_ub_debugging_env)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
