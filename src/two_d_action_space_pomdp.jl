@@ -296,7 +296,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
             immediate_stop_flag = true
         end
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
-        num_time_intervals = 10
+        num_time_intervals = 2
         cart_path::Vector{Tuple{Float64,Float64,Float64}}, cart_reached_goal_flag = update_cart_position_pomdp_planning_2D_action_space(s.cart, a[1], new_cart_velocity, m.world.length,
                                                                                         m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
         new_cart_position = cart_path[end]
@@ -400,9 +400,9 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     # if(r>0)
     #     @show(s,a,sp,r)
     # end
-    if(cart_reached_goal_flag)
-        @show(s, a, sp)
-    end
+    # if(cart_reached_goal_flag)
+    #     @show(s, a, sp)
+    # end
     return (sp=sp, o=o, r=r)
 end
 #@code_warntype POMDPs.gen(golfcart_2D_action_space_pomdp, POMDP_state_2D_action_space(env.cart,env.humans), (pi/15.0 , 1.0), MersenneTwister(1234))
@@ -433,6 +433,7 @@ end
 function time_to_goal_pomdp_planning_2D_action_space(s,max_cart_speed)
     cart_distance_to_goal = sqrt( (s.cart.x-s.cart.goal.x)^2 + (s.cart.y-s.cart.goal.y)^2 )
     #@show(cart_distance_to_goal)
+    #@show(floor(cart_distance_to_goal/max_cart_speed))
     return floor(cart_distance_to_goal/max_cart_speed)
 end
 
@@ -448,7 +449,7 @@ function calculate_upper_bound_value_pomdp_planning_2D_action_space(m, b)
         elseif(is_collision_state_pomdp_planning_2D_action_space(s,m))
             value_sum += w*m.pedestrian_collision_penalty
         else
-            value_sum += w*((discount(m)^time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed))*m.goal_reward)
+            value_sum += w*((discount(m)^(time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed)-1))*m.goal_reward)
         end
     end
     return value_sum
@@ -539,7 +540,7 @@ function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)
         # end
         value_sum += w*((discount(m)^time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed))*m.goal_reward)
     end
-    println("HG rules")
+    println("HG rules", value_sum)
     return value_sum
 end
 
@@ -547,6 +548,77 @@ end
 
 #************************************************************************************************
 #Functions for debugging lb>ub error
+
+function debug_calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
+    #Implement a reactive controller for your lower bound
+    push!(rollout,b)
+    speed_change_to_be_returned = 1.0
+    best_delta_angle = 0.0
+    d_far_threshold = 5.0
+    d_near_threshold = 2.0
+    #This bool is also used to check if all the states in the belief are terminal or not.
+    first_execution_flag = true
+
+    for (s, w) in weighted_particles(b)
+        if(s.cart.x == -100.0 && s.cart.y == -100.0)
+            continue
+        else
+            if(first_execution_flag)
+                direct_line_to_goal_angle = wrap_between_0_and_2Pi(atan(s.cart.goal.y-s.cart.y,s.cart.goal.x-s.cart.x))
+                delta_angles = Float64[-pi/4, -pi/6, -pi/12, 0.0, pi/12, pi/6 , pi/4]
+                best_delta_angle = delta_angles[1]
+                best_dot_product_value_so_far = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
+                                   , ( cos(s.cart.theta+delta_angles[1]), sin(s.cart.theta+delta_angles[1]) ) )
+                for i in 2:length(delta_angles)
+                     dot_prodcut = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
+                                        , ( cos(s.cart.theta+delta_angles[i]), sin(s.cart.theta+delta_angles[i]) ) )
+                     if(dot_prodcut > best_dot_product_value_so_far)
+                         best_dot_product_value_so_far = dot_prodcut
+                         best_delta_angle = delta_angles[i]
+                     end
+                end
+                first_execution_flag = false
+            else
+                dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
+                for human in s.pedestrians
+                    euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
+                    if(euclidean_distance < dist_to_closest_human)
+                        dist_to_closest_human = euclidean_distance
+                    end
+                    if(dist_to_closest_human < d_near_threshold)
+                        return (0.0,-1.0)
+                    end
+                end
+                if(dist_to_closest_human > d_far_threshold)
+                    chosen_acceleration = 1.0
+                else
+                    chosen_acceleration = 0.0
+                end
+                if(chosen_acceleration < speed_change_to_be_returned)
+                    speed_change_to_be_returned = chosen_acceleration
+                end
+            end
+        end
+    end
+
+    #This condition is true only when all the states in the belief are terminal. In that case, just return (0.0,0.0)
+    if(first_execution_flag == true)
+        #@show(0.0,0.0)
+        return (0.0,0.0)
+    end
+
+    #This means all humans are away and you can accelerate.
+    if(speed_change_to_be_returned == 1.0)
+        #@show(0.0,speed_change_to_be_returned)
+        return (0.0,speed_change_to_be_returned)
+    end
+
+    #If code has reached this point, then the best action is to maintain your current speed.
+    #We have already found the best steering angle to take.
+    #@show(best_delta_angle,0.0)
+    return (best_delta_angle,0.0)
+end
+
 function debug_is_collision_state_pomdp_planning_2D_action_space(s,m)
 
     if((s.cart.x>100.0) || (s.cart.y>100.0) || (s.cart.x<0.0) || (s.cart.y<0.0))
@@ -583,7 +655,7 @@ function debug_golfcart_upper_bound_2D_action_space(m,b)
         elseif (is_collision_state_pomdp_planning_2D_action_space(s,m))
             value_sum += w*m.pedestrian_collision_penalty
         else
-            value_sum += w*((discount(m)^time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed))*m.goal_reward)
+            value_sum += w*((discount(m)^(time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed)-1))*m.goal_reward)
         end
     end
     #@show("*********************************************************************")
@@ -595,3 +667,5 @@ function debug_golfcart_upper_bound_2D_action_space(m,b)
     end
     return u
 end
+
+rollout= []
