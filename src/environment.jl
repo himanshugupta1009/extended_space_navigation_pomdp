@@ -1,5 +1,6 @@
 using Plots
 using Random
+using MetaGraphs
 
 #Global Variables
 plot_size = 800; #number of pixels
@@ -49,6 +50,7 @@ mutable struct experiment_environment
     cart_lidar_data::Array{human_state,1}
     complete_cart_lidar_data::Array{human_state,1}
     cart_hybrid_astar_path::Array{Float64,1}
+    prm::MetaGraph
 end
 
 #Function to display the environment
@@ -85,6 +87,7 @@ function display_env(env::experiment_environment)
     #Plot Golfcart
     scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.25*plot_size*cart_size/env.length)
 
+    #Plot Hybrid A* path
     if(length(env.cart_hybrid_astar_path)!=0)
         initial_state = [env.cart.x,env.cart.y,env.cart.theta]
         path_x, path_y = [env.cart.x],[env.cart.y]
@@ -103,6 +106,10 @@ function display_env(env::experiment_environment)
         end
         plot!(path_x,path_y,color="black")
     end
+
+    #Plot the PRM map
+
+    
     plot!(size=(plot_size,plot_size))
     display(p)
 end
@@ -110,13 +117,13 @@ end
 #Define the Environment
 function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
 
-    world_length = 50.0
-    world_breadth = 50.0
+    world_length = 100.0
+    world_breadth = 100.0
     g1 = location(0.0,0.0)
     g2 = location(0.0,world_breadth)
     g3 = location(world_length,world_breadth)
     g4 = location(world_length,0.0)
-    cart_goal = location(world_length,30.0)
+    cart_goal = location(world_length,75.0)
     all_goals_list = [g1,g2,g3,g4]
     all_obstacle_list = []
     max_num_humans = number_of_humans
