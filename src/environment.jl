@@ -75,7 +75,7 @@ function display_env(env::experiment_environment)
             end
         end
         if(!in_lidar_data_flag)
-            scatter!([env.humans[i].x], [env.humans[i].y],color="red",msize=0.5*plot_size/env.length)
+            #scatter!([env.humans[i].x], [env.humans[i].y],color="yellow",msize=0.5*plot_size/env.length)
         end
     end
 
@@ -85,7 +85,7 @@ function display_env(env::experiment_environment)
     end
 
     #Plot Golfcart
-    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.25*plot_size*cart_size/env.length)
+    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.3*plot_size*cart_size/env.length)
 
     #Plot Hybrid A* path
     if(length(env.cart_hybrid_astar_path)!=0)
@@ -107,9 +107,17 @@ function display_env(env::experiment_environment)
         plot!(path_x,path_y,color="black")
     end
 
-    #Plot the PRM map
+    #Plot the PRM vertices
+    for i in 1:nv(env.prm)
+        scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
+    end
+    #Plot the PRM edges
+    all_edges = collect(edges(env.prm))
+    for edge in all_edges
+        plot!( [get_prop(env.prm,edge.src,:x),get_prop(env.prm,edge.dst,:x) ], [get_prop(env.prm,edge.src,:y),get_prop(env.prm,edge.dst,:y)], color="LightGrey")
+        # scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
+    end
 
-    
     plot!(size=(plot_size,plot_size))
     display(p)
 end
@@ -122,7 +130,6 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
     g1 = location(0.0,0.0)
     g2 = location(0.0,world_breadth)
     g3 = location(world_length,world_breadth)
-    g4 = location(world_length,0.0)
     cart_goal = location(world_length,75.0)
     all_goals_list = [g1,g2,g3,g4]
     all_obstacle_list = []
@@ -145,7 +152,7 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
 
     world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[])
+                    initial_complete_cart_lidar_data,Float64[],MetaGraph())
 
     return world
 end
@@ -158,7 +165,7 @@ function generate_environment_circular_obstacles(number_of_humans,user_defined_r
     g2 = location(0.0,world_breadth)
     g3 = location(world_length,world_breadth)
     g4 = location(world_length,0.0)
-    cart_goal = location(world_length,70.0)
+    cart_goal = location(world_length,75.0)
     all_goals_list = [g1,g2,g3,g4]
 
     o1 = obstacle_location(50.0,70.0,5.0)
@@ -176,7 +183,7 @@ function generate_environment_circular_obstacles(number_of_humans,user_defined_r
     # all_obstacle_list = [o1,o2,o3,o4]
     all_obstacle_list = [o1,o2,o3,o4,o5,o6]
 
-    golfcart = cart_state(1.0,20.0,0.0,0.0,1.0,cart_goal)
+    golfcart = cart_state(1.0,25.0,0.0,0.0,1.0,cart_goal)
     initial_cart_lidar_data = Array{human_state,1}()
     initial_complete_cart_lidar_data = Array{human_state,1}()
 
@@ -194,7 +201,7 @@ function generate_environment_circular_obstacles(number_of_humans,user_defined_r
 
     world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[])
+                    initial_complete_cart_lidar_data,Float64[],MetaGraph())
 
     return world
 end
