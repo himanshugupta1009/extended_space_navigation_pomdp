@@ -400,9 +400,9 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     # if(r>0)
     #     @show(s,a,sp,r)
     # end
-    if(cart_reached_goal_flag)
-        @show(s, a, sp)
-    end
+    # if(cart_reached_goal_flag)
+    #     @show(s, a, sp)
+    # end
     return (sp=sp, o=o, r=r)
 end
 #@code_warntype POMDPs.gen(golfcart_2D_action_space_pomdp, POMDP_state_2D_action_space(env.cart,env.humans), (pi/15.0 , 1.0), MersenneTwister(1234))
@@ -539,7 +539,7 @@ function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)
         # end
         value_sum += w*((discount(m)^time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed))*m.goal_reward)
     end
-    println("HG rules")
+    #println("HG rules")
     return value_sum
 end
 
