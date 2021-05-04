@@ -7,9 +7,9 @@ function generate_prm_vertices(max_num_vertices, world)
     prm_graph = MetaGraph()
     set_prop!(prm_graph, :description, "This is the PRM for global planning")
     add_vertex!(prm_graph)
-    set_props!(prm_graph, nv(prm_graph), Dict(:x=>world.cart.x, :y => world.cart.y, :dist => 0.0))
+    set_props!(prm_graph, nv(prm_graph), Dict(:x=>world.cart.x, :y => world.cart.y, :dist_to_goal => 0.0))
     add_vertex!(prm_graph)
-    set_props!(prm_graph, nv(prm_graph), Dict(:x=>world.cart.goal.x, :y => world.cart.goal.y, :dist => 0.0))
+    set_props!(prm_graph, nv(prm_graph), Dict(:x=>world.cart.goal.x, :y => world.cart.goal.y, :dist_to_goal => 0.0))
     num_vertices_so_far = 2
 
     while(num_vertices_so_far<max_num_vertices)
@@ -26,7 +26,7 @@ function generate_prm_vertices(max_num_vertices, world)
         end
         if(collision_flag == false)
             add_vertex!(prm_graph)
-            set_props!(prm_graph, nv(prm_graph), Dict(:x=>sampled_x_point, :y => sampled_y_point, :dist => 0.0))
+            set_props!(prm_graph, nv(prm_graph), Dict(:x=>sampled_x_point, :y => sampled_y_point, :dist_to_goal => 0.0))
             num_vertices_so_far += 1
         end
     end
@@ -64,13 +64,14 @@ function generate_prm_edges(world, num_nearest_nebhrs)
             else
                 add_edge_flag = true
                 for obstacle in world.obstacles
-                    if( find_if_circle_and_line_segment_intersect(obstacle.x,obstacle.y,obstacle.r+2,
-                                                get_prop(world.prm,i,:x),get_prop(world.prm,i,:y),get_prop(world.prm,j,:x),get_prop(world.prm,j,:y)) )
+                    if( find_if_circle_and_line_segment_intersect(obstacle.x,obstacle.y,obstacle.r+2,get_prop(world.prm,i,:x),
+                        get_prop(world.prm,i,:y),get_prop(world.prm,dist_dict[i][j][1],:x),get_prop(world.prm,dist_dict[i][j][1],:y)) )
                         add_edge_flag = false
                     end
                 end
                 if(add_edge_flag)
                     add_edge!(world.prm,i,dist_dict[i][j][1])
+                    set_prop!(world.prm, Edge(i, dist_dict[i][j][1]), :weight, dist_dict[i][j][2])
                     num_out_edges +=1
                 end
             end
@@ -78,5 +79,9 @@ function generate_prm_edges(world, num_nearest_nebhrs)
         end
     end
     # gplot(env.prm)
+    for i in 1:nv(world.prm)
+        dsp = dijkstra_shortest_paths(world.prm, i)
+        set_prop!(world.prm, i, :dist_to_goal, dsp.dists[2])
+    end
     return dist_dict
 end
