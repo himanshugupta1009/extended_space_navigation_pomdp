@@ -84,6 +84,7 @@ function find_if_circle_and_line_segment_intersect(cx::Float64,cy::Float64,cr::F
     fy = ey-cy
 
     #Quadratic equation is  t^2 ( d · d ) + 2t ( d · f ) +  (f · f - r^2) = 0
+    #(ex,ey) is the starting point of the ray and (lx,ly) is the end point
     #Refer to this link if needed - https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
     #Standard form is a.t^2 + b.t + c = 0
 
@@ -388,16 +389,17 @@ function update_current_belief_by_creating_temp_world(old_world, new_world, old_
         temp_world.humans[human_index].y = 0.5*(old_world.humans[human_index].y + new_world.humans[human_index].y)
     end
 
-    new_lidar_data = get_lidar_data(temp_world,lidar_range)
-    new_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(temp_world.cart, new_lidar_data,
+    complete_new_lidar_data = get_lidar_data(temp_world,lidar_range)
+    new_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(temp_world.cart, complete_new_lidar_data,
                                                                                 num_humans_to_care_about, cone_half_angle )
     #Update belief
+    temp_world.complete_cart_lidar_data = complete_new_lidar_data
     temp_world.cart_lidar_data = new_lidar_data
     updated_belief = update_belief(old_belief, temp_world.goals,
-        old_world.cart_lidar_data, temp_world.cart_lidar_data)
+        old_world.complete_cart_lidar_data, temp_world.complete_cart_lidar_data)
 
     final_updated_belief = update_belief(updated_belief, new_world.goals,
-        temp_world.cart_lidar_data, new_world.cart_lidar_data)
+        temp_world.complete_cart_lidar_data, new_world.complete_cart_lidar_data)
 
     return final_updated_belief
 end
