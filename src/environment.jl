@@ -1,6 +1,7 @@
 using Plots
 using Random
 using MetaGraphs
+using LightGraphs
 
 #Global Variables
 plot_size = 800; #number of pixels
@@ -66,16 +67,16 @@ function display_env(env::experiment_environment)
     end
 
     #Plot Rest of the Humans
-    for i in 1: length(env.humans)
+    for i in 1: length(env.complete_cart_lidar_data)
         in_lidar_data_flag = false
         for green_human in env.cart_lidar_data
-            if(env.humans[i].id == green_human.id)
+            if(env.complete_cart_lidar_data[i].id == green_human.id)
                 in_lidar_data_flag = true
                 break
             end
         end
         if(!in_lidar_data_flag)
-            #scatter!([env.humans[i].x], [env.humans[i].y],color="yellow",msize=0.5*plot_size/env.length)
+            scatter!([env.complete_cart_lidar_data[i].x], [env.complete_cart_lidar_data[i].y],color="red",msize=0.5*plot_size/env.length)
         end
     end
 
@@ -130,6 +131,7 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
     g1 = location(0.0,0.0)
     g2 = location(0.0,world_breadth)
     g3 = location(world_length,world_breadth)
+    g4 = location(world_length,0.0)
     cart_goal = location(world_length,75.0)
     all_goals_list = [g1,g2,g3,g4]
     all_obstacle_list = []
