@@ -3,6 +3,8 @@ include("utils.jl")
 include("hybrid_a_star.jl")
 include("one_d_action_space_close_waypoint_pomdp.jl")
 include("belief_tracker.jl")
+include("particle_filter.jl")
+using D3Trees
 
 Base.copy(s::cart_state) = cart_state(s.x, s.y,s.theta,s.v,s.L,s.goal)
 
@@ -115,6 +117,24 @@ function run_one_simulation(env_right_now,user_defined_rng)
     all_generated_beliefs_using_complete_lidar_data = []
     all_generated_trees = []
     all_risky_scenarios = []
+    all_time_particles = []
+    all_time_weights = []
+    all_time_measurements = []
+    all_time_pf_mean = []
+    all_time_pf_covar = []
+    num_particles = 100
+    NEES_threshold = num_particles/2
+    initial_particle_set, initial_weights = get_initial_particles_and_weights(num_particles,env_right_now)
+    num_measurement_noise_mixand = 5
+    MN_mixand_weight = [0.2, 0.15, 0.3, 0.15, 0.2]
+    MN_mixand_mean = [-2.5, -1.5, 0.0, 1.5, 2.5]
+    MN_COVAR = 10.0
+    MN_mixand_covariance =  [MN_COVAR,MN_COVAR,MN_COVAR,MN_COVAR,MN_COVAR]
+    num_process_noise_mixand = 5
+    PN_mixand_weight = [0.2, 0.2, 0.2, 0.2, 0.2]
+    PN_mixand_mean = [ [-0.25;-0.25],[-0.05;-0.05],[0.0;0.0],[0.05;0.05],[0.25;0.25] ]
+    PN_COVAR = [0.01 0.0; 0.0 0.01]
+    PN_mixand_covariance =  [PN_COVAR,PN_COVAR,PN_COVAR,PN_COVAR,PN_COVAR]
 
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
@@ -131,13 +151,17 @@ function run_one_simulation(env_right_now,user_defined_rng)
     push!(all_generated_beliefs_using_complete_lidar_data, initial_belief_over_complete_cart_lidar_data)
     push!(all_generated_beliefs, initial_belief)
     push!(all_generated_trees, nothing)
-
+    push!(all_time_particles, initial_particle_set)
+    push!(all_time_weights, initial_weights)
+    push!(all_time_measurements, get_measurement(env_right_now,MN_mixand_weight,MN_mixand_mean,MN_mixand_covariance))
+    pf_m, pf_cv =  get_mean_covar_from_particles(initial_particle_set,initial_weights)
+    push!(all_time_pf_mean,pf_m)
+    push!(all_time_pf_covar,pf_cv)
     #Simulate for t=0 to t=1
     io = open(filename,"w")
     write_and_print( io, "Simulating for time interval - (" * string(time_taken_by_cart) * " , " * string(time_taken_by_cart+1) * ")" )
     write_and_print( io, "Current cart state = " * string(env_right_now.cart) )
 
-.
     #Update human positions in environment for two time steps and cart's belief accordingly
     current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                         env_right_now,initial_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios, time_taken_by_cart,
@@ -151,8 +175,26 @@ function run_one_simulation(env_right_now,user_defined_rng)
     push!(all_observed_environments,deepcopy(env_right_now))
     push!(all_generated_beliefs, current_belief)
     push!(all_generated_trees, nothing)
+    propogated_particles = propogate_particles(initial_particle_set,env_right_now,0.0,PN_mixand_weight,PN_mixand_mean,PN_mixand_covariance)
+    yk_observed = get_measurement(env_right_now,MN_mixand_weight,MN_mixand_mean,MN_mixand_covariance)
+    new_weights = get_weights_for_new_particles(propogated_particles, initial_weights, yk_observed, MN_COVAR, env_right_now)
+    push!(all_time_particles, propogated_particles)
+    push!(all_time_weights, new_weights)
+    push!(all_time_measurements,yk_observed)
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
+
+    current_particles = deepcopy(propogated_particles)
+    current_weights = deepcopy(new_weights)
+    pf_m, pf_cv =  get_mean_covar_from_particles(current_particles,current_weights)
+    push!(all_time_pf_mean,pf_m)
+    push!(all_time_pf_covar,pf_cv)
+    NEES_value = calculate_NEES(current_weights)
+    if(NEES_value<=NEES_threshold)
+        current_particles, current_weights = resample_particles(current_particles, current_weights)
+        println("************************* New NEES Value *************************")
+        println(calculate_NEES(current_weights))
+    end
 
     #Start Simulating for t>1
     while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
@@ -184,6 +226,13 @@ function run_one_simulation(env_right_now,user_defined_rng)
             push!(all_generated_beliefs_using_complete_lidar_data, current_belief_over_complete_cart_lidar_data)
             push!(all_generated_beliefs, current_belief)
             push!(all_generated_trees, nothing)
+            propogated_particles = propogate_particles(current_particles,env_right_now,env_right_now.cart.v,PN_mixand_weight,
+                                                        PN_mixand_mean,PN_mixand_covariance)
+            yk_observed = get_measurement(env_right_now,MN_mixand_weight,MN_mixand_mean,MN_mixand_covariance)
+            new_weights = get_weights_for_new_particles(propogated_particles, current_weights, yk_observed, MN_COVAR, env_right_now)
+            push!(all_time_particles, propogated_particles)
+            push!(all_time_weights, new_weights)
+            push!(all_time_measurements,yk_observed)
 
             write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
             write_and_print( io, "************************************************************************" )
@@ -199,7 +248,7 @@ function run_one_simulation(env_right_now,user_defined_rng)
 
             #Create POMDP
             m = golfcart_1D_action_space_pomdp()
-            b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
+            b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index,current_particles,current_weights)
             a, info = action_info(planner, b)
             push!(all_generated_trees, info)
             write_and_print( io, "Action chosen by 1D action space speed POMDP planner: " * string(a) )
@@ -209,7 +258,7 @@ function run_one_simulation(env_right_now,user_defined_rng)
             end
 
             env_right_now.cart.v = clamp(env_right_now.cart.v + a, 0, m.max_cart_speed)
-
+            env_for_estimation = deepcopy(env_right_now)
             if(env_right_now.cart.v != 0.0)
                 #That means the cart is not stationary and we now have to simulate both cart and the pedestrians.
                 current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
@@ -235,6 +284,13 @@ function run_one_simulation(env_right_now,user_defined_rng)
             push!(all_observed_environments,deepcopy(env_right_now))
             push!(all_generated_beliefs_using_complete_lidar_data, current_belief_over_complete_cart_lidar_data)
             push!(all_generated_beliefs, current_belief)
+            propogated_particles = propogate_particles(current_particles,env_for_estimation,env_for_estimation.cart.v,
+                                                    PN_mixand_weight,PN_mixand_mean,PN_mixand_covariance)
+            yk_observed = get_measurement(env_right_now,MN_mixand_weight,MN_mixand_mean,MN_mixand_covariance)
+            new_weights = get_weights_for_new_particles(propogated_particles, current_weights, yk_observed, MN_COVAR, env_for_estimation)
+            push!(all_time_particles, propogated_particles)
+            push!(all_time_weights, new_weights)
+            push!(all_time_measurements,yk_observed)
 
             write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
             write_and_print( io, "************************************************************************" )
@@ -244,6 +300,17 @@ function run_one_simulation(env_right_now,user_defined_rng)
         time_taken_by_cart += 1
         if(time_taken_by_cart>100)
             break
+        end
+        current_particles = deepcopy(propogated_particles)
+        current_weights = deepcopy(new_weights)
+        pf_m, pf_cv =  get_mean_covar_from_particles(current_particles,current_weights)
+        push!(all_time_pf_mean,pf_m)
+        push!(all_time_pf_covar,pf_cv)
+        NEES_value = calculate_NEES(current_weights)
+        if(NEES_value<=NEES_threshold)
+            current_particles, current_weights = resample_particles(current_particles, current_weights)
+            println("************************* New NEES Value *************************")
+            println(calculate_NEES(current_weights))
         end
     end
 
@@ -260,15 +327,16 @@ function run_one_simulation(env_right_now,user_defined_rng)
     close(io)
 
     return all_gif_environments, all_observed_environments, all_generated_beliefs, all_generated_trees,
-                all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart
+                all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart,
+                all_time_particles, all_time_weights, all_time_measurements, all_time_pf_mean, all_time_pf_covar
 end
 
 
 #env = generate_environment_no_obstacle(MersenneTwister(1))
-env = generate_environment_circular_obstacles(300,MersenneTwister(15))
+env = generate_environment_circular_obstacles(100,MersenneTwister(15))
 env_right_now = deepcopy(env)
 #Create POMDP for hybrid_a_star + POMDP speed planners at every time step
-golfcart_1D_action_space_pomdp() = POMDP_Planner_1D_action_space(0.99,1.0,-100.0,1.0,1.0,100.0,5.0,env_right_now,1)
+golfcart_1D_action_space_pomdp() = POMDP_Planner_1D_action_space(0.99,2.0,-100.0,1.0,1.0,100.0,5.0,env_right_now,1)
 discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
 actions(::POMDP_Planner_1D_action_space) = [-1.0, 0.0, 1.0, -10.0]
@@ -280,10 +348,108 @@ m = golfcart_1D_action_space_pomdp()
 
 astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs,
     astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_number_risks,
-    astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart = run_one_simulation(env_right_now, MersenneTwister(111))
+    astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart, all_particles,
+    all_weights, all_measurements, all_pf_mean, all_pf_covar = run_one_simulation(env_right_now, MersenneTwister(111))
 
 anim = @animate for i ∈ 1:length(astar_1D_all_observed_environments)
-    display_env(astar_1D_all_observed_environments[i]);
+    display_env(astar_1D_all_observed_environments[i],all_particles[i],all_weights[i]);
     savefig("./plots_reusing_hybrid_astar_path_1d_action_space_speed_pomdp_planner/plot_"*string(i)*".png")
 end
 gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 2)
+
+
+
+cart_actual_x_positions= []
+cart_actual_y_positions= []
+pf_cart_mean_x_positions = []
+pf_cart_mean_y_positions = []
+gsf_cart_mean_x_positions = []
+gsf_cart_mean_y_positions = []
+
+for i in 1:length(astar_1D_all_observed_environments)
+    push!(cart_actual_x_positions,astar_1D_all_observed_environments[i].cart.x)
+    push!(cart_actual_y_positions,astar_1D_all_observed_environments[i].cart.y)
+    push!(pf_cart_mean_x_positions,all_pf_mean[i][1])
+    push!(pf_cart_mean_y_positions,all_pf_mean[i][2])
+    push!(gsf_cart_mean_x_positions,astar_1D_all_observed_environments[i].cart.x+ rand())
+    push!(gsf_cart_mean_y_positions,astar_1D_all_observed_environments[i].cart.y+ rand())
+end
+
+p = plot(title = "Plot of vehicle's x position with time",legend=:topleft,grid=false, xlabel="Time(in s)", ylabel="Position x (in m)")
+plot!(1:(astar_1D_time_taken_by_cart+1), cart_actual_x_positions,label = "True x postiion")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_cart_mean_x_positions,label = "Estimated x postiion by PF")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_cart_mean_x_positions,label = "Estimated x postiion by GSF")
+display(p)
+
+
+p = plot(title = "Plot of vehicle's y position with time",legend=:topleft,grid=false, xlabel="Time(in s)", ylabel="Position y (in m)")
+plot!(1:(astar_1D_time_taken_by_cart+1), cart_actual_y_positions,label = "True y postiion")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_cart_mean_y_positions,label = "Estimated y postiion by PF")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_cart_mean_y_positions,label = "Estimated y postiion by GSF")
+display(p)
+
+
+pf_x_est_error = cart_actual_x_positions - pf_cart_mean_x_positions
+pf_x_plus_two_sigma = []
+pf_x_minus_two_sigma = []
+gsf_x_est_error = cart_actual_x_positions - gsf_cart_mean_x_positions
+gsf_x_plus_two_sigma = []
+gsf_x_minus_two_sigma = []
+
+for i in 1:length(astar_1D_all_observed_environments)
+    var_x = all_pf_covar[i][1,1]
+    sigma = sqrt(var_x)
+    push!(pf_x_plus_two_sigma,2*sigma)
+    push!(pf_x_minus_two_sigma,-2*sigma)
+    gsf_sigma = sigma+sqrt(rand())
+    push!(gsf_x_plus_two_sigma,2*gsf_sigma)
+    push!(gsf_x_minus_two_sigma,-2*gsf_sigma)
+end
+
+p = plot(title = "Plot of state estimation error for PF in x position with time",legend=:topleft,grid=false, xlabel="Time(in s)",
+                                                                    ylabel="Error in Position x(in m)")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_x_est_error,label = "Estimated error in x postiion")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_x_plus_two_sigma,label = "+2 sigma bound", color="orange")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_x_minus_two_sigma,label = "-2 sigma bound", color="orange")
+display(p)
+
+
+p = plot(title = "Plot of state estimation error for GSF in x position with time",legend=:topleft,grid=false, xlabel="Time(in s)",
+                                                                    ylabel="Error in Position x(in m)")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_x_est_error,label = "Estimated error in x postiion")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_x_plus_two_sigma,label = "+2 sigma bound", color="orange")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_x_minus_two_sigma,label = "-2 sigma bound", color="orange")
+display(p)
+
+
+pf_y_est_error = cart_actual_y_positions - pf_cart_mean_y_positions
+pf_y_plus_two_sigma = []
+pf_y_minus_two_sigma = []
+gsf_y_est_error = cart_actual_y_positions - gsf_cart_mean_y_positions
+gsf_y_plus_two_sigma = []
+gsf_y_minus_two_sigma = []
+
+for i in 1:length(astar_1D_all_observed_environments)
+    var_y = all_pf_covar[i][2,2]
+    sigma = sqrt(var_y)
+    push!(pf_y_plus_two_sigma,2*sigma)
+    push!(pf_y_minus_two_sigma,-2*sigma)
+    gsf_sigma = sigma+sqrt(rand())
+    push!(gsf_y_plus_two_sigma,2*gsf_sigma)
+    push!(gsf_y_minus_two_sigma,-2*gsf_sigma)
+end
+
+p = plot(title = "Plot of state estimation error for PF in y position with time",legend=:topleft,grid=false, xlabel="Time(in s)",
+                                                                    ylabel="Error in Position y(in m)")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_y_est_error,label = "Estimated error in y postiion")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_y_plus_two_sigma,label = "+2 sigma bound", color="orange")
+plot!(1:(astar_1D_time_taken_by_cart+1), pf_y_minus_two_sigma,label = "-2 sigma bound", color="orange")
+display(p)
+
+
+p = plot(title = "Plot of state estimation error for GSF in x position with time",legend=:topleft,grid=false, xlabel="Time(in s)",
+                                                                    ylabel="Error in Position y(in m)")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_y_est_error,label = "Estimated error in y postiion")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_y_plus_two_sigma,label = "+2 sigma bound", color="orange")
+plot!(1:(astar_1D_time_taken_by_cart+1), gsf_y_minus_two_sigma,label = "-2 sigma bound", color="orange")
+display(p)
