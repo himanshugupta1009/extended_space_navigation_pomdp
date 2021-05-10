@@ -51,8 +51,14 @@ mutable struct experiment_environment
     cart_hybrid_astar_path::Array{Float64,1}
 end
 
+#Function to plot an ellipse
+function ellipse(h,k,a,b)
+    θ = LinRange(0,2*pi,500)
+    h.+ a*cos.(θ), k.+ b*sin.(θ)
+end
+
 #Function to display the environment
-function display_env(env::experiment_environment)
+function display_env(env::experiment_environment,particles=nothing,weights=nothing)
 
     #Plot Boundaries
     p = plot([0.0],[0.0],legend=false,grid=false)
@@ -83,7 +89,7 @@ function display_env(env::experiment_environment)
     end
 
     #Plot Golfcart
-    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.25*plot_size*cart_size/env.length)
+    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.3*plot_size*cart_size/env.length)
 
     if(length(env.cart_hybrid_astar_path)!=0)
         initial_state = [env.cart.x,env.cart.y,env.cart.theta]
@@ -102,6 +108,16 @@ function display_env(env::experiment_environment)
             initial_state = [last(x),last(y),last(theta)]
         end
         plot!(path_x,path_y,color="black")
+    end
+
+    if(particles!=nothing)
+        # for particle in particles
+        #     scatter!([particle.x], [particle.y], shape=:square, color="LightGrey", msize= 0.6*plot_size*cart_size/env.length)
+        # end
+        m,v = get_mean_covar_from_particles(particles,weights)
+        scatter!([m[1]], [m[2]], shape=:plus, color="black", msize= 0.6*plot_size*cart_size/env.length)
+        plot!(ellipse(m[1],m[2],v[1,1],v[2,2]), seriestype=[:shape,],lw=0.5,c=:blue,linecolor=:black,legend=false,fillalpha=0.2,aspect_ratio=1)
+        println(v[1,1]," ",v[2,2])
     end
     plot!(size=(plot_size,plot_size))
     display(p)
