@@ -11,11 +11,33 @@ function find_distance_between_points(x1,y1,x2,y2)
     return dist
 end
 
-function get_measurement(world,R)
+function get_measurement(world,MN_mixand_weight,MN_mixand_mean,MN_mixand_covariance)
     true_meas = find_distance_between_points(world.cart.x,world.cart.y,world.cart.goal.x,world.cart.goal.y)
-    mn_nd = Normal(0.0,R)
+    index = rand(SparseCat([1,2,3,4,5],MN_mixand_weight))
+    mn_nd = Normal(MN_mixand_mean[index],MN_mixand_covariance[index])
     mn = rand(mn_nd)
     return true_meas+mn
+end
+
+function get_initial_particles_and_weights(num_particles,world)
+    #num_particles = 100
+    particles = cart_state_particle[]
+    weights = Float64[]
+    for i in 1:num_particles
+        x = world.cart.x
+        x += rand(Distributions.Uniform(-2,2))
+        x = clamp(x,0,world.length)
+        y = world.cart.y
+        y += rand(Distributions.Uniform(-2,2))
+        y = clamp(y,0,world.breadth)
+        theta = world.cart.x
+        theta += rand(Distributions.Uniform(-pi/36,pi/36))
+        theta = wrap_between_0_and_2Pi(theta)
+        theta = world.cart.theta
+        push!(particles, cart_state_particle(x,y,theta))
+        push!(weights,1/num_particles)
+    end
+    return particles,weights
 end
 
 function propogate_individual_particle(current_cart_position, new_cart_velocity, starting_index, world)
@@ -50,13 +72,18 @@ function propogate_individual_particle(current_cart_position, new_cart_velocity,
     return cart_path
 end
 
-function propogate_particles(particles, world, new_cart_velocity)
+function propogate_particles(particles, world, new_cart_velocity,PN_mixand_weight,PN_mixand_mean,PN_mixand_covariance)
     new_particles = Array{cart_state_particle,1}()
     for particle in particles
         particle_path::Vector{Tuple{Float64,Float64,Float64}} = propogate_individual_particle(particle,
                                                                                     new_cart_velocity, 1, world)
         new_particle_position = particle_path[end]
-        new_particle = cart_state_particle(new_particle_position[1],new_particle_position[2],new_particle_position[3])
+        index = rand(SparseCat([1,2,3,4,5],PN_mixand_weight))
+        pn_nd = MvNormal(PN_mixand_mean[index],PN_mixand_covariance[index])
+        sampled_pn = rand(pn_nd)
+        #new_particle = cart_state_particle(new_particle_position[1],new_particle_position[2],new_particle_position[3])
+        new_particle = cart_state_particle(new_particle_position[1]+sampled_pn[1],
+                                        new_particle_position[2]+sampled_pn[2],new_particle_position[3])
         push!(new_particles,new_particle)
     end
     return new_particles
