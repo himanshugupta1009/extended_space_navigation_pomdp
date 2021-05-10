@@ -274,8 +274,8 @@ end
 run_simulation_flag = true
 if(run_simulation_flag)
 
-    # #env = generate_environment_no_obstacle(MersenneTwister(71))
-    env = generate_environment_no_obstacles(300, MersenneTwister(15))
+    #env = generate_environment_no_obstacles(300, MersenneTwister(15))
+    env = generate_environment_circular_obstacles(300, MersenneTwister(15))
     env_right_now = deepcopy(env)
 
     #Create POMDP for env_right_now
