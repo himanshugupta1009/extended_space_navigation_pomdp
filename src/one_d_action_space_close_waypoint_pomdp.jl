@@ -10,7 +10,7 @@ using ParticleFilters
 using BenchmarkTools
 using Debugger
 using LinearAlgebra
-
+include("particle_filter.jl")
 
 #Struct definition for POMDP State
 struct POMDP_state_1D_action_space
@@ -51,6 +51,8 @@ struct POMDP_1D_action_space_state_distribution
     world::experiment_environment
     current_belief::Array{human_probability_over_goals,1}
     start_path_index::Float64
+    particles::Array{cart_state_particle,1}
+    weights::Array{Float64,1}
 end
 
 function Base.rand(rng::AbstractRNG, state_distribution::POMDP_1D_action_space_state_distribution)
@@ -62,6 +64,9 @@ function Base.rand(rng::AbstractRNG, state_distribution::POMDP_1D_action_space_s
                             state_distribution.world.cart_lidar_data[i].id)
         push!(pedestrians, new_human)
     end
+    new_particle = rand(SparseCat(state_distribution.particles,state_distribution.weights))
+    new_cart = cart_state(new_particle.x,new_particle.y,new_particle.theta,
+                            state_distribution.world.cart.v,state_distribution.world.cart.L,state_distribution.world.cart.goal)
     return POMDP_state_1D_action_space(state_distribution.world.cart,pedestrians,state_distribution.start_path_index)
 end
 
