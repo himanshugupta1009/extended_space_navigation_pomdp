@@ -2,6 +2,7 @@ include("environment.jl")
 include("utils.jl")
 include("two_d_action_space_pomdp.jl")
 include("belief_tracker.jl")
+include("prm.jl")
 using DataStructures
 
 Base.copy(s::cart_state) = cart_state(s.x, s.y,s.theta,s.v,s.L,s.goal)
@@ -124,7 +125,8 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
     lidar_range = 30
     num_humans_to_care_about_while_pomdp_planning = 6
     #cone_half_angle = (pi)/3.0
-    cone_half_angle = (2.0/3.0)*pi
+    #cone_half_angle = (2.0/3.0)*pi
+    cone_half_angle = (1.0)*pi
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_near_goal_flag = false
     cart_reached_goal_flag = true
@@ -136,7 +138,10 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
     all_generated_beliefs_using_complete_lidar_data = []
     all_generated_trees = []
     all_risky_scenarios = []
+    all_actions = []
     reached_goal_flag = false
+    current_cart_vertex_num = 1
+    parent_cart_vertex_num = 0
 
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
@@ -180,7 +185,7 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
 
     #Start Simulating for t>1
     while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
-        display_env(env_right_now)
+        display_env(env_right_now, (current_cart_vertex_num, parent_cart_vertex_num))
         io = open(filename,"a")
         if( (env_right_now.cart.x<=100.0 && env_right_now.cart.y<=100.0 && env_right_now.cart.x>=0.0 && env_right_now.cart.y>=0.0) )
 
@@ -191,20 +196,30 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
             #Solve POMDP to get the best action
             # m = golfcart_2D_action_space_pomdp()
             @show(m.world.cart.x)
-            b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
+            b = POMDP_2D_action_space_state_distribution(m.world,current_belief,current_cart_vertex_num,parent_cart_vertex_num)
             a, info = action_info(planner, b)
+            push!( all_actions, (time_taken_by_cart,a) )
             write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string(a) )
 
-            if(env_right_now.cart.v!=0 && a[2] == -10.0)
+            if(env_right_now.cart.v!=0 && a == 3)
                 number_of_sudden_stops += 1
             end
 
             push!(all_generated_trees, deepcopy(info))
-            env_right_now.cart.v = clamp(env_right_now.cart.v + a[2],0,m.max_cart_speed)
+
+            if(a==3)
+                env_right_now.cart.v = 0.0
+            else
+                env_right_now.cart.v = clamp( get_prop(env_right_now.graph,current_cart_vertex_num,a,:weight) ,0,m.max_cart_speed)
+                parent_cart_vertex_num = current_cart_vertex_num
+                current_cart_vertex_num = a
+            end
 
             if(env_right_now.cart.v != 0.0)
                 #That means the cart is not stationary and we now have to simulate both cart and the pedestrians.
-                steering_angle = atan((env_right_now.cart.L*a[1])/env_right_now.cart.v)
+                env_right_now.cart.theta = get_heading_angle( get_prop(env_right_now.graph,a,:x), get_prop(env_right_now.graph,a,:y),
+                                                                                        env_right_now.cart.x, env_right_now.cart.y)
+                steering_angle = 0.0
                 current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
                                                                     env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments,
                                                                     all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
@@ -212,7 +227,12 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
                                                                     steering_angle)
                 current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                     env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
+                println(env_right_now.cart)
+                env_right_now.cart.x = get_prop(env_right_now.graph, a, :x)
+                env_right_now.cart.y = get_prop(env_right_now.graph, a, :y)
                 number_risks += risks_in_simulation
+                println(env_right_now.cart)
+
             else
                 #That means the cart is stationary and we now just have to simulate the pedestrians.
                 current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
@@ -266,32 +286,56 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
     close(io)
 
     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
-                all_generated_trees,all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart,
+                all_generated_trees,all_risky_scenarios, all_actions, number_risks, number_of_sudden_stops, time_taken_by_cart,
                 cart_reached_goal_flag
+end
 
+function get_available_neighbors(m::POMDP_Planner_2D_action_space,b)
+    pomdp_state = first(particles(b))
+    actions::Array{Int64,1} = filter(x->x!=pomdp_state.parent_vertex_num, neighbors(m.world.graph,pomdp_state.curr_vertex_num))
+    #@show(pomdp_state.curr_vertex_num, pomdp_state.parent_vertex_num, actions)
+    return actions
 end
 
 run_simulation_flag = true
 if(run_simulation_flag)
-
-    #env = generate_environment_no_obstacles(300, MersenneTwister(15))
-    env = generate_environment_circular_obstacles(300, MersenneTwister(15))
+    gr()
+    #env = generate_environment_no_obstacle(MersenneTwister(1))
+    env = generate_environment_small_circular_obstacles(100,MersenneTwister(15))
+    #env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
+    env.graph = generate_prm_vertices(1000,env)
+    distance_dict_prm = generate_prm_edges(env,10)
     env_right_now = deepcopy(env)
 
+    #Find max edge weight. This will have to be removed later when PRM is more dense and better.
+    max_edge_weight = get_max_weight_edge_from_prm(env.graph)
+    cart_max_velocity = ceil(max_edge_weight)
+
     #Create POMDP for env_right_now
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.99,2.0,-1000.0,1.0,-1000.0,0.0,1.0,1000000.0,5.0,env_right_now)
+    #POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,Int,Array{location,1}}
+    # discount_factor::Float64; pedestrian_distance_threshold::Float64; pedestrian_collision_penalty::Float64;
+    # obstacle_distance_threshold::Float64; obstacle_collision_penalty::Float64; goal_reward_distance_threshold::Float64;
+    # cart_goal_reached_distance_threshold::Float64; goal_reward::Float64; max_cart_speed::Float64; world::experiment_environment
+
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.99,2.0,-100.0,1.0,-100.0,0.0,1.0,100.0,cart_max_velocity,env_right_now)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-    actions(::POMDP_Planner_2D_action_space) = [(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
+    #actions(::POMDP_Planner_2D_action_space) = [(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
+    #actions(m::POMDP_Planner_2D_action_space) = [(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
+    actions(m::POMDP_Planner_2D_action_space,b) = get_available_neighbors(m,b)
 
-    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
-                            final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
-                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
+    # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
+    #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
+    #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=3)
+    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
+                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),
+                            K=100,D=100,T_max=0.5, tree_in_info=true)
+
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
 
     display_env(golfcart_2D_action_space_pomdp.world)
     just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
-            just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios,
+            just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios,just_2D_pomdp_all_actions,
             just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
             just_2D_pomdp_cart_reached_goal_flag = run_one_simulation(env_right_now, MersenneTwister(111),
                                                                                         golfcart_2D_action_space_pomdp, planner)
