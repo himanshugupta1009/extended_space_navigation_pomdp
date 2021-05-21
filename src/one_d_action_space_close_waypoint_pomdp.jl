@@ -20,7 +20,7 @@ struct POMDP_state_1D_action_space
 end
 
 #Struct definition for the POMDP planner
-mutable struct POMDP_Planner_1D_action_space <: POMDPs.POMDP{POMDP_state_1D_action_space,Int,Array{location,1}}
+mutable struct POMDP_Planner_1D_action_space <: POMDPs.POMDP{POMDP_state_1D_action_space,Float64,Array{location,1}}
     discount_factor::Float64
     pedestrian_distance_threshold::Float64
     pedestrian_collision_penalty::Float64
