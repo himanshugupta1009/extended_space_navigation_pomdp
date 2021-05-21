@@ -2,6 +2,7 @@ using Plots
 using Random
 using MetaGraphs
 using LightGraphs
+using Revise
 
 #Global Variables
 plot_size = 800; #number of pixels
@@ -51,76 +52,7 @@ mutable struct experiment_environment
     cart_lidar_data::Array{human_state,1}
     complete_cart_lidar_data::Array{human_state,1}
     cart_hybrid_astar_path::Array{Float64,1}
-    prm::MetaGraph
-end
-
-#Function to display the environment
-function display_env(env::experiment_environment)
-
-    #Plot Boundaries
-    p = plot([0.0],[0.0],legend=false,grid=false)
-    plot!([env.length], [env.breadth],legend=false)
-
-    #Plot Humans in the cart lidar data
-    for i in 1: length(env.cart_lidar_data)
-        scatter!([env.cart_lidar_data[i].x], [env.cart_lidar_data[i].y],color="green",msize=0.5*plot_size/env.length)
-    end
-
-    #Plot Rest of the Humans
-    for i in 1: length(env.complete_cart_lidar_data)
-        in_lidar_data_flag = false
-        for green_human in env.cart_lidar_data
-            if(env.complete_cart_lidar_data[i].id == green_human.id)
-                in_lidar_data_flag = true
-                break
-            end
-        end
-        if(!in_lidar_data_flag)
-            scatter!([env.complete_cart_lidar_data[i].x], [env.complete_cart_lidar_data[i].y],color="red",msize=0.5*plot_size/env.length)
-        end
-    end
-
-    #Plot Obstacles
-    for i in 1: length(env.obstacles)
-        scatter!([env.obstacles[i].x], [env.obstacles[i].y],color="black",shape=:circle,msize=plot_size*env.obstacles[i].r/env.length)
-    end
-
-    #Plot Golfcart
-    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.3*plot_size*cart_size/env.length)
-
-    #Plot Hybrid A* path
-    if(length(env.cart_hybrid_astar_path)!=0)
-        initial_state = [env.cart.x,env.cart.y,env.cart.theta]
-        path_x, path_y = [env.cart.x],[env.cart.y]
-        for steering_angle in env.cart_hybrid_astar_path
-            extra_parameters = [1.0, env.cart.L, steering_angle]
-            x,y,theta = get_intermediate_points(initial_state, 1.0, extra_parameters);
-            for pos_x in 2:length(x)
-                push!(path_x,x[pos_x])
-            end
-            for pos_y in 2:length(y)
-                push!(path_y,y[pos_y])
-            end
-            push!(path_x,last(x))
-            push!(path_y,last(y))
-            initial_state = [last(x),last(y),last(theta)]
-        end
-        plot!(path_x,path_y,color="black")
-    end
-
-    #Plot the PRM vertices
-    for i in 1:nv(env.prm)
-        scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
-    end
-    #Plot the PRM edges
-    all_edges = collect(edges(env.prm))
-    for edge in all_edges
-        plot!( [get_prop(env.prm,edge.src,:x),get_prop(env.prm,edge.dst,:x) ], [get_prop(env.prm,edge.src,:y),get_prop(env.prm,edge.dst,:y)], color="LightGrey")
-        # scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
-    end
-
-    plot!(size=(plot_size,plot_size))
-    display(p)
+    graph::MetaDiGraph
 end
 
 #Define the Environment
@@ -134,10 +66,10 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
     g4 = location(world_length,0.0)
     cart_goal = location(world_length,75.0)
     all_goals_list = [g1,g2,g3,g4]
-    all_obstacle_list = []
+    all_obstacle_list = obstacle_location[]
     max_num_humans = number_of_humans
 
-    golfcart = cart_state(1.0,25.0,0.0,0.0,0.5,cart_goal)
+    golfcart = cart_state(1.0,25.0,0.0,0.0,1.0,cart_goal)
     initial_cart_lidar_data = Array{human_state,1}()
     initial_complete_cart_lidar_data = Array{human_state,1}()
 
@@ -154,12 +86,12 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
 
     world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[],MetaGraph())
+                    initial_complete_cart_lidar_data,Float64[],MetaDiGraph())
 
     return world
 end
 
-function generate_environment_circular_obstacles(number_of_humans,user_defined_rng)
+function generate_environment_small_circular_obstacles(number_of_humans,user_defined_rng)
 
     world_length = 100.0
     world_breadth = 100.0
@@ -203,7 +135,129 @@ function generate_environment_circular_obstacles(number_of_humans,user_defined_r
 
     world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[],MetaGraph())
+                    initial_complete_cart_lidar_data,Float64[],MetaDiGraph())
 
     return world
+end
+
+function generate_environment_large_circular_obstacles(number_of_humans,user_defined_rng)
+
+    world_length = 100.0
+    world_breadth = 100.0
+    g1 = location(0.0,0.0)
+    g2 = location(0.0,world_breadth)
+    g3 = location(world_length,world_breadth)
+    g4 = location(world_length,0.0)
+    cart_goal = location(world_length,75.0)
+    all_goals_list = [g1,g2,g3,g4]
+
+    o1 = obstacle_location(50.0,75.0,15.0)
+    o2 = obstacle_location(50.0,25.0,15.0)
+    all_obstacle_list = [o1,o2]
+
+    golfcart = cart_state(1.0,25.0,0.0,0.0,1.0,cart_goal)
+    initial_cart_lidar_data = Array{human_state,1}()
+    initial_complete_cart_lidar_data = Array{human_state,1}()
+
+    max_num_humans = number_of_humans
+    human_state_start_list = Array{human_state,1}()
+    for i in 1:max_num_humans
+        human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        while(is_within_range_check_with_points(human.x,human.y, golfcart.x, golfcart.y, 5.0))
+            human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                    , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        end
+        push!(human_state_start_list,human)
+    end
+
+    world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
+                    all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
+                    initial_complete_cart_lidar_data,Float64[],MetaDiGraph())
+
+    return world
+end
+
+#Function to display the environment
+function display_env(env::experiment_environment , vertex_tuple = nothing)
+
+    #Plot Boundaries
+    p = plot([0.0],[0.0],legend=false,grid=false)
+    plot!([env.length], [env.breadth],legend=false)
+
+    #Plot Humans in the cart lidar data
+    for i in 1: length(env.cart_lidar_data)
+        scatter!([env.cart_lidar_data[i].x], [env.cart_lidar_data[i].y],color="green",msize=0.5*plot_size/env.length)
+    end
+
+    #Plot Rest of the Humans
+    for i in 1: length(env.complete_cart_lidar_data)
+        in_lidar_data_flag = false
+        for green_human in env.cart_lidar_data
+            if(env.complete_cart_lidar_data[i].id == green_human.id)
+                in_lidar_data_flag = true
+                break
+            end
+        end
+        if(!in_lidar_data_flag)
+            scatter!([env.complete_cart_lidar_data[i].x], [env.complete_cart_lidar_data[i].y],color="red",msize=0.5*plot_size/env.length)
+        end
+    end
+
+    #Plot Obstacles
+    for i in 1: length(env.obstacles)
+        scatter!([env.obstacles[i].x], [env.obstacles[i].y],color="black",shape=:circle,msize=plot_size*env.obstacles[i].r/env.length)
+    end
+
+    #Plot Golfcart
+    scatter!([env.cart.x], [env.cart.y], color="blue",shape=:circle, msize= 0.3*plot_size*cart_size/env.length)
+
+    #Plot Hybrid A* path
+    if(length(env.cart_hybrid_astar_path)!=0)
+        initial_state = [env.cart.x,env.cart.y,env.cart.theta]
+        path_x, path_y = [env.cart.x],[env.cart.y]
+        for steering_angle in env.cart_hybrid_astar_path
+            extra_parameters = [1.0, env.cart.L, steering_angle]
+            x,y,theta = get_intermediate_points(initial_state, 1.0, extra_parameters);
+            for pos_x in 2:length(x)
+                push!(path_x,x[pos_x])
+            end
+            for pos_y in 2:length(y)
+                push!(path_y,y[pos_y])
+            end
+            push!(path_x,last(x))
+            push!(path_y,last(y))
+            initial_state = [last(x),last(y),last(theta)]
+        end
+        plot!(path_x,path_y,color="black")
+    end
+
+    #Plot the PRM vertices
+    # for i in 1:nv(env.graph)
+    #     if(i!=3)
+    #         scatter!([get_prop(env.graph,i,:x)], [get_prop(env.graph,i,:y)],color="Grey",shape=:circle,msize=0.3*plot_size/env.length)
+    #     end
+    # end
+
+    #Format of vertex_tuple -> (current_vertex, parent_vertex)
+    if(vertex_tuple != nothing)
+        for n in neighbors(env.graph, vertex_tuple[1])
+            if( n!= vertex_tuple[2] && n!=3 )
+                plot!( [get_prop(env.graph,vertex_tuple[1],:x),get_prop(env.graph,n,:x)], [get_prop(env.graph,vertex_tuple[1],:y),
+                                                                    get_prop(env.graph,n,:y)], color="LightGrey")
+            end
+        end
+    else
+        #Plot all the PRM edges
+        all_edges = collect(edges(env.graph))
+        for edge in all_edges
+            if( get_prop(env.graph,edge.dst,:x) != -100.0 )
+                plot!( [get_prop(env.graph,edge.src,:x),get_prop(env.graph,edge.dst,:x) ], [get_prop(env.graph,edge.src,:y),get_prop(env.graph,edge.dst,:y)], color="LightGrey")
+            end
+            # scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
+        end
+    end
+    annotate!(env.cart.goal.x, env.cart.goal.y, text("G", :purple, :right, 20))
+    plot!(size=(plot_size,plot_size))
+    display(p)
 end
