@@ -274,19 +274,24 @@ end
 run_simulation_flag = true
 if(run_simulation_flag)
 
-    # #env = generate_environment_no_obstacle(MersenneTwister(71))
     env = generate_environment_no_obstacles(300, MersenneTwister(15))
+    # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
+    # env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
     env_right_now = deepcopy(env)
 
     #Create POMDP for env_right_now
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.99,2.0,-1000.0,1.0,-1000.0,0.0,1.0,1000000.0,5.0,env_right_now)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,2.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,3.0,env_right_now)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
+    #actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
     actions(::POMDP_Planner_2D_action_space) = [(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
 
-    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
-                            final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
+    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100),
                             calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
+    # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
+    #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
+    #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
+
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
 
     display_env(golfcart_2D_action_space_pomdp.world)
