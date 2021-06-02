@@ -271,16 +271,24 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
 
 end
 
+function get_available_neighbors(m::POMDP_Planner_2D_action_space,b)
+    pomdp_state = first(particles(b))
+    steering_angle = get_heading_angle( pomdp_state.cart.goal.x, pomdp_state.cart.goal.y, pomdp_state.cart.x, pomdp_state.cart.y)
+    #actions::Array{Int64,1} = filter(x->x!=pomdp_state.parent_vertex_num, neighbors(m.world.graph,pomdp_state.curr_vertex_num))
+    #@show(pomdp_state.curr_vertex_num, pomdp_state.parent_vertex_num, actions)
+    return [(steering_angle, 0.0),(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
+end
+
 run_simulation_flag = true
 if(run_simulation_flag)
-
-    env = generate_environment_no_obstacles(300, MersenneTwister(15))
+    gr()
+    env = generate_environment_no_obstacles(500, MersenneTwister(15))
     # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
     # env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
     env_right_now = deepcopy(env)
 
     #Create POMDP for env_right_now
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,2.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,3.0,env_right_now)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,2.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     #actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
