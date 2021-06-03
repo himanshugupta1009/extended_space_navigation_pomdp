@@ -461,9 +461,9 @@ end
 function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
     #Implement a reactive controller for your lower bound
     speed_change_to_be_returned = 1.0
-    best_delta_angle = 0.0
-    d_far_threshold = 5.0
-    d_near_threshold = 2.0
+    delta_angle = 0.0
+    d_far_threshold = 6.0
+    d_near_threshold = 4.0
     #This bool is also used to check if all the states in the belief are terminal or not.
     first_execution_flag = true
 
@@ -472,18 +472,17 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
             continue
         else
             if(first_execution_flag)
-                direct_line_to_goal_angle = wrap_between_0_and_2Pi(atan(s.cart.goal.y-s.cart.y,s.cart.goal.x-s.cart.x))
-                delta_angles = Float64[-pi/4, -pi/6, -pi/12, 0.0, pi/12, pi/6 , pi/4]
-                best_delta_angle = delta_angles[1]
-                best_dot_product_value_so_far = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
-                                   , ( cos(s.cart.theta+delta_angles[1]), sin(s.cart.theta+delta_angles[1]) ) )
-                for i in 2:length(delta_angles)
-                     dot_prodcut = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
-                                        , ( cos(s.cart.theta+delta_angles[i]), sin(s.cart.theta+delta_angles[i]) ) )
-                     if(dot_prodcut > best_dot_product_value_so_far)
-                         best_dot_product_value_so_far = dot_prodcut
-                         best_delta_angle = delta_angles[i]
-                     end
+                required_orientation = get_heading_angle( s.cart.goal.x, s.cart.goal.y, s.cart.x, s.cart.y)
+                delta_angle = required_orientation - s.cart.theta
+                abs_delta_angle = abs(delta_angle)
+                if(abs_delta_angle<=pi)
+                    delta_angle = clamp(delta_angle, -pi/4, pi/4)
+                else
+                    if(delta_angle>=0.0)
+                        delta_angle = clamp(delta_angle-2*pi, -pi/4, pi/4)
+                    else
+                        delta_angle = clamp(delta_angle+2*pi, -pi/4, pi/4)
+                    end
                 end
                 first_execution_flag = false
             else
@@ -494,7 +493,7 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
                         dist_to_closest_human = euclidean_distance
                     end
                     if(dist_to_closest_human < d_near_threshold)
-                        return (0.0,-1.0)
+                        return (delta_angle,-1.0)
                     end
                 end
                 if(dist_to_closest_human > d_far_threshold)
@@ -518,13 +517,13 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
     #This means all humans are away and you can accelerate.
     if(speed_change_to_be_returned == 1.0)
         #@show(0.0,speed_change_to_be_returned)
-        return (0.0,speed_change_to_be_returned)
+        return (delta_angle,speed_change_to_be_returned)
     end
 
     #If code has reached this point, then the best action is to maintain your current speed.
     #We have already found the best steering angle to take.
     #@show(best_delta_angle,0.0)
-    return (best_delta_angle,0.0)
+    return (delta_angle,0.0)
 end
 
 function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)

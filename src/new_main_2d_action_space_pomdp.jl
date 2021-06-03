@@ -271,18 +271,32 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
 
 end
 
-function get_available_neighbors(m::POMDP_Planner_2D_action_space,b)
+function get_available_actions(b)
     pomdp_state = first(particles(b))
-    steering_angle = get_heading_angle( pomdp_state.cart.goal.x, pomdp_state.cart.goal.y, pomdp_state.cart.x, pomdp_state.cart.y)
-    #actions::Array{Int64,1} = filter(x->x!=pomdp_state.parent_vertex_num, neighbors(m.world.graph,pomdp_state.curr_vertex_num))
-    #@show(pomdp_state.curr_vertex_num, pomdp_state.parent_vertex_num, actions)
-    return [(steering_angle, 0.0),(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
+    required_orientation = get_heading_angle( pomdp_state.cart.goal.x, pomdp_state.cart.goal.y, pomdp_state.cart.x, pomdp_state.cart.y)
+    delta_angle = required_orientation - pomdp_state.cart.theta
+    abs_delta_angle = abs(delta_angle)
+    if(abs_delta_angle<=pi)
+        delta_angle = clamp(delta_angle, -pi/4, pi/4)
+    else
+        if(delta_angle>=0.0)
+            delta_angle = clamp(delta_angle-2*pi, -pi/4, pi/4)
+        else
+            delta_angle = clamp(delta_angle+2*pi, -pi/4, pi/4)
+        end
+    end
+    if(pomdp_state.cart.v == 0.0)
+        return [(delta_angle, 1.0),(-pi/4,1.0),(-pi/6,1.0),(-pi/12,1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,1.0),(pi/4,1.0)]
+    else
+        return [(delta_angle, 1.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+    end
 end
+#@code_warntype get_available_actions(POMDP_state_2D_action_space(env.cart,env.humans))
 
 run_simulation_flag = true
 if(run_simulation_flag)
     gr()
-    env = generate_environment_no_obstacles(500, MersenneTwister(15))
+    env = generate_environment_no_obstacles(300, MersenneTwister(15))
     # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
     # env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
     env_right_now = deepcopy(env)
@@ -292,10 +306,10 @@ if(run_simulation_flag)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     #actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
-    actions(::POMDP_Planner_2D_action_space) = [(-10.0,-10.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
+    actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions(b)
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100),
-                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
+                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
