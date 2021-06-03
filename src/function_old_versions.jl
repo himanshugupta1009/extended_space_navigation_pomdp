@@ -827,3 +827,76 @@ function wall_collision_penalty_pomdp_planning_2D_action_space(wall_collision_fl
         return 0.0
     end
 end
+
+
+# Function to calculate the lower bound policy for DESPOT.
+# This function found the best possile action out of existing ones and executed that.
+#In the new approach, we don't need that anymore. We have modified the action space to have a delta_angle that aligns you with the orientaton to goal directly.
+function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
+    #Implement a reactive controller for your lower bound
+    speed_change_to_be_returned = 1.0
+    best_delta_angle = 0.0
+    d_far_threshold = 5.0
+    d_near_threshold = 2.0
+    #This bool is also used to check if all the states in the belief are terminal or not.
+    first_execution_flag = true
+
+    for (s, w) in weighted_particles(b)
+        if(s.cart.x == -100.0 && s.cart.y == -100.0)
+            continue
+        else
+            if(first_execution_flag)
+                direct_line_to_goal_angle = wrap_between_0_and_2Pi(atan(s.cart.goal.y-s.cart.y,s.cart.goal.x-s.cart.x))
+                delta_angles = Float64[-pi/4, -pi/6, -pi/12, 0.0, pi/12, pi/6 , pi/4]
+                best_delta_angle = delta_angles[1]
+                best_dot_product_value_so_far = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
+                                   , ( cos(s.cart.theta+delta_angles[1]), sin(s.cart.theta+delta_angles[1]) ) )
+                for i in 2:length(delta_angles)
+                     dot_prodcut = dot( ( cos(direct_line_to_goal_angle), sin(direct_line_to_goal_angle) )
+                                        , ( cos(s.cart.theta+delta_angles[i]), sin(s.cart.theta+delta_angles[i]) ) )
+                     if(dot_prodcut > best_dot_product_value_so_far)
+                         best_dot_product_value_so_far = dot_prodcut
+                         best_delta_angle = delta_angles[i]
+                     end
+                end
+                first_execution_flag = false
+            else
+                dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
+                for human in s.pedestrians
+                    euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
+                    if(euclidean_distance < dist_to_closest_human)
+                        dist_to_closest_human = euclidean_distance
+                    end
+                    if(dist_to_closest_human < d_near_threshold)
+                        return (0.0,-1.0)
+                    end
+                end
+                if(dist_to_closest_human > d_far_threshold)
+                    chosen_acceleration = 1.0
+                else
+                    chosen_acceleration = 0.0
+                end
+                if(chosen_acceleration < speed_change_to_be_returned)
+                    speed_change_to_be_returned = chosen_acceleration
+                end
+            end
+        end
+    end
+
+    #This condition is true only when all the states in the belief are terminal. In that case, just return (0.0,0.0)
+    if(first_execution_flag == true)
+        #@show(0.0,0.0)
+        return (0.0,0.0)
+    end
+
+    #This means all humans are away and you can accelerate.
+    if(speed_change_to_be_returned == 1.0)
+        #@show(0.0,speed_change_to_be_returned)
+        return (0.0,speed_change_to_be_returned)
+    end
+
+    #If code has reached this point, then the best action is to maintain your current speed.
+    #We have already found the best steering angle to take.
+    #@show(best_delta_angle,0.0)
+    return (best_delta_angle,0.0)
+end
