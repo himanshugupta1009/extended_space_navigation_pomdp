@@ -13,7 +13,7 @@ function hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environment
                                                                         lidar_range, user_defined_rng)
 
     number_risks = 0
-    env_before_humans_simulated_for_first_half_second = deepcopy(env_right_now)
+    env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
 
     #Simulate for 0 to 0.5 seconds
     for i in 1:5
@@ -31,10 +31,10 @@ function hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environment
 
     #Update your belief after first 0.5 seconds
     updated_belief = update_belief_from_old_world_and_new_world(current_belief,
-                                                    env_before_humans_simulated_for_first_half_second, env_right_now)
+                                                    env_before_humans_and_cart_simulated_for_first_half_second, env_right_now)
 
     #Simulate for 0.5 to 1 second
-    env_before_humans_simulated_for_second_half_second = deepcopy(env_right_now)
+    env_before_humans_and_cart_simulated_for_second_half_second = deepcopy(env_right_now)
     for i in 6:10
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
@@ -50,7 +50,7 @@ function hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environment
 
     #Update your belief after second 0.5 seconds
     final_updated_belief = update_belief_from_old_world_and_new_world(updated_belief,
-                                                    env_before_humans_simulated_for_second_half_second, env_right_now)
+                                                    env_before_humans_and_cart_simulated_for_second_half_second, env_right_now)
 
     return final_updated_belief, number_risks
 end
@@ -61,26 +61,45 @@ function hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_en
                                                             num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
                                                             lidar_range, user_defined_rng)
 
+    #First simulate only the cart and get its path
+    goal_reached_in_this_time_step_flag = false
+    if(env_right_now.cart.v > length(env_right_now.cart_hybrid_astar_path))
+        steering_angles = env_right_now.cart_hybrid_astar_path
+        goal_reached_in_this_time_step_flag = true
+    else
+        steering_angles = env_right_now.cart_hybrid_astar_path[1:Int(env_right_now.cart.v)]
+    end
+    cart_path_x = Float64[]; cart_path_y = Float64[]; cart_path_theta = Float64[]
+    initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
+    for i in 1:length(steering_angles)
+        steering_angle = steering_angles[i]
+        extra_parameters = [env_right_now.cart.v, env_right_now.cart.L, steering_angle]
+        x,y,theta = get_intermediate_points(initial_state, 1.0/env_right_now.cart.v, extra_parameters, 0.1/env_right_now.cart.v )
+        append!(cart_path_x, x[2:end])
+        append!(cart_path_y, y[2:end])
+        append!(cart_path_theta, theta[2:end])
+        initial_state = [last(cart_path_x),last(cart_path_y),last(cart_path_theta)]
+    end
+
     number_risks = 0
 
-    #Simulate for t=0 to t=1 second
-    env_before_humans_and_cart_simulated = deepcopy(env_right_now)
+    #Simulate for 0 to 0.5 seconds
+    env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
     initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
+    curr_hybrid_astar_path_index = 0
 
-    for i in 1:Int64(env_right_now.cart.v)
-        if(length(env_right_now.cart_hybrid_astar_path) == 0)
-            break
-        end
-        steering_angle = env_right_now.cart_hybrid_astar_path[1]
-        extra_parameters = [env_right_now.cart.v, env_right_now.cart.L, steering_angle]
-        x,y,theta = get_intermediate_points(initial_state, 1.0/env_right_now.cart.v, extra_parameters);
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = last(x), last(y), last(theta)
-        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,1.0/env_right_now.cart.v,user_defined_rng)
+    for i in 1:5
+        cart_path_index = clamp(Int(i*env_right_now.cart.v),1,10*length(steering_angles))
+        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = cart_path_x[cart_path_index], cart_path_y[cart_path_index], cart_path_theta[cart_path_index]
+        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
                                                             cone_half_angle)
-        env_right_now.cart_hybrid_astar_path = env_right_now.cart_hybrid_astar_path[2 : end]
+        if( floor( (0.1*i) / (1/env_right_now.cart.v) ) > curr_hybrid_astar_path_index)
+            curr_hybrid_astar_path_index += 1
+            env_right_now.cart_hybrid_astar_path = env_right_now.cart_hybrid_astar_path[2 : end]
+        end
         push!( all_gif_environments, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
         if(get_count_number_of_risks(env_right_now) != 0)
             number_risks += get_count_number_of_risks(env_right_now)
@@ -89,10 +108,42 @@ function hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_en
         initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
     end
 
-    #Update your belief after 1 second by creating a temp world after 0.5 second and incrementing currenty_belief twice
-    final_updated_belief = update_current_belief_by_creating_temp_world(env_before_humans_and_cart_simulated, env_right_now, current_belief,
-                                                                lidar_range, num_humans_to_care_about_while_pomdp_planning, cone_half_angle)
+    #Update your belief after first 0.5 seconds
+    updated_belief = update_belief_from_old_world_and_new_world(current_belief,
+                                                    env_before_humans_and_cart_simulated_for_first_half_second, env_right_now)
 
+    #Simulate for 0.5 to 1 second
+    env_before_humans_and_cart_simulated_for_second_half_second = deepcopy(env_right_now)
+    initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
+    for i in 6:10
+        cart_path_index = clamp(Int(i*env_right_now.cart.v),1,10*length(steering_angles))
+        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = cart_path_x[cart_path_index], cart_path_y[cart_path_index], cart_path_theta[cart_path_index]
+        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
+        env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
+        env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
+                                                            env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
+                                                            cone_half_angle)
+        if( floor( (0.1*i) / (1/env_right_now.cart.v) ) > curr_hybrid_astar_path_index)
+            curr_hybrid_astar_path_index += 1
+            env_right_now.cart_hybrid_astar_path = env_right_now.cart_hybrid_astar_path[2 : end]
+        end
+        push!( all_gif_environments, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
+        if(get_count_number_of_risks(env_right_now) != 0)
+            number_risks += get_count_number_of_risks(env_right_now)
+            push!(all_risky_scenarios, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
+        end
+        initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
+    end
+
+    #Update your belief after second 0.5 seconds
+    final_updated_belief = update_belief_from_old_world_and_new_world(updated_belief,
+                                                    env_before_humans_and_cart_simulated_for_second_half_second, env_right_now)
+
+    # if(goal_reached_in_this_time_step_flag)
+    #     env_right_now.cart_hybrid_astar_path = []
+    # else
+    #     env_right_now.cart_hybrid_astar_path = env_right_now.cart_hybrid_astar_path[Int(env_right_now.cart.v)+1:end]
+    # end
     return final_updated_belief, number_risks
 end
 
@@ -104,7 +155,7 @@ function run_one_simulation(env_right_now,user_defined_rng, m, planner)
     lidar_range = 30
     num_humans_to_care_about_while_generating_hybrid_astar_path = 6
     num_humans_to_care_about_while_pomdp_planning = 6
-    cone_half_angle = pi/3.0
+    cone_half_angle = 2*pi/3.0
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_near_goal_flag = false
     filename = "output_resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner.txt"
@@ -264,13 +315,13 @@ end
 run_simulation_flag = true
 if(run_simulation_flag)
     gr()
-    #env = generate_environment_no_obstacle(MersenneTwister(1))
+    env = generate_environment_no_obstacles(300,MersenneTwister(15))
     # env = generate_environment_small_circular_obstacles(300,MersenneTwister(15))
-    env = generate_environment_large_circular_obstacles(500,MersenneTwister(15))
+    # env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
     env_right_now = deepcopy(env)
 
     #Create POMDP for hybrid_a_star + POMDP speed planners at every time step
-    golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,2.0,-100.0,1.0,1.0,100.0,2.0,env_right_now,1)
+    golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,0.5,-100.0,1.0,1.0,1000.0,5.0,env_right_now,1)
     discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
@@ -293,3 +344,12 @@ if(run_simulation_flag)
     gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 2)
 
 end
+
+#=
+anim = @animate for i ∈ 1:length(astar_1D_all_gif_environments)
+    println(astar_1D_all_gif_environments[i][1])
+    display_env(astar_1D_all_gif_environments[i][2],astar_1D_all_gif_environments[i][1]);
+    #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
+end
+gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 20)
+=#
