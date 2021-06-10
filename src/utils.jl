@@ -32,9 +32,9 @@ function travel!(du,u,p,t)
     du[3] = (v/L)*tan(alpha)
 end
 
-function get_intermediate_points(initial_state, time_interval, extra_parameters)
+function get_intermediate_points(initial_state, time_interval, extra_parameters, save_at_value=0.1)
     prob = ODEProblem(travel!,initial_state,time_interval,extra_parameters)
-    sol = DifferentialEquations.solve(prob,saveat=0.1)
+    sol = DifferentialEquations.solve(prob,saveat=save_at_value)
     x = []
     y = []
     theta = []
