@@ -2,7 +2,7 @@ using Plots
 using Random
 
 #Global Variables
-plot_size = 800; #number of pixels
+plot_size = 1000; #number of pixels
 cart_size = 1; # radius in meters
 
 #Various different Struct definitions
@@ -175,7 +175,7 @@ function generate_environment_large_circular_obstacles(number_of_humans,user_def
 end
 
 #Function to display the environment
-function display_env(env::experiment_environment)
+function display_env(env::experiment_environment, gif_env_num=nothing)
 
     #Plot Boundaries
     p = plot([0.0],[0.0],legend=false,grid=false)
@@ -186,7 +186,7 @@ function display_env(env::experiment_environment)
         scatter!([env.cart_lidar_data[i].x], [env.cart_lidar_data[i].y],color="green",msize=0.5*plot_size/env.length)
     end
 
-    #Plot Rest of the Humans
+    #Plot humans from cart_lidar_data
     for i in 1: length(env.complete_cart_lidar_data)
         in_lidar_data_flag = false
         for green_human in env.cart_lidar_data
@@ -200,6 +200,20 @@ function display_env(env::experiment_environment)
         end
     end
 
+    # #Plot Rest of the Humans
+    # for i in 1: length(env.humans)
+    #     in_lidar_data_flag = false
+    #     for green_human in env.cart_lidar_data
+    #         if(env.humans[i].id == green_human.id)
+    #             in_lidar_data_flag = true
+    #             break
+    #         end
+    #     end
+    #     if(!in_lidar_data_flag)
+    #         scatter!([env.humans[i].x], [env.humans[i].y],color="red",msize=0.5*plot_size/env.length)
+    #     end
+    # end
+
     #Plot Obstacles
     for i in 1: length(env.obstacles)
         scatter!([env.obstacles[i].x], [env.obstacles[i].y],color="black",shape=:circle,msize=plot_size*env.obstacles[i].r/env.length)
@@ -207,25 +221,66 @@ function display_env(env::experiment_environment)
 
     #Plot Golfcart
     scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.3*plot_size*cart_size/env.length)
+    quiver!([env.cart.x],[env.cart.y],quiver=([cos(env.cart.theta)],[sin(env.cart.theta)]), color="blue")
 
+    #Plot the Hybrid A* path if it exists
     if(length(env.cart_hybrid_astar_path)!=0)
-        initial_state = [env.cart.x,env.cart.y,env.cart.theta]
-        path_x, path_y = [env.cart.x],[env.cart.y]
-        for steering_angle in env.cart_hybrid_astar_path
-            extra_parameters = [1.0, env.cart.L, steering_angle]
-            x,y,theta = get_intermediate_points(initial_state, 1.0, extra_parameters);
-            for pos_x in 2:length(x)
-                push!(path_x,x[pos_x])
+        #Plotting for normal environments that are 1 sec apart
+        if(gif_env_num==nothing)
+            initial_state = [env.cart.x,env.cart.y,env.cart.theta]
+            path_x, path_y = [env.cart.x],[env.cart.y]
+            for steering_angle in env.cart_hybrid_astar_path
+                extra_parameters = [1.0, env.cart.L, steering_angle]
+                x,y,theta = get_intermediate_points(initial_state, 1.0, extra_parameters);
+                for pos_x in 2:length(x)
+                    push!(path_x,x[pos_x])
+                end
+                for pos_y in 2:length(y)
+                    push!(path_y,y[pos_y])
+                end
+                initial_state = [last(x),last(y),last(theta)]
             end
-            for pos_y in 2:length(y)
-                push!(path_y,y[pos_y])
+            plot!(path_x,path_y,color="black")
+        #Plotting for gif environments that are 0.1 sec apart
+        else
+            current_gif_env_time_index = parse(Int, split(gif_env_num,"_")[2])
+            current_time_stamp = 0.1*current_gif_env_time_index
+            upper_cap_on_time = ceil(current_time_stamp/(1/env.cart.v))
+            time_remaining_for_current_steering_angle = ((1/env.cart.v)*upper_cap_on_time) - current_time_stamp
+            if(time_remaining_for_current_steering_angle!=0.0 && env.cart.v!=0.0)
+                initial_state = [env.cart.x,env.cart.y,env.cart.theta]
+                path_x, path_y = [env.cart.x],[env.cart.y]
+                steering_angle = env.cart_hybrid_astar_path[1]
+                extra_parameters = [env.cart.v, env.cart.L, steering_angle]
+                x,y,theta = get_intermediate_points(initial_state,time_remaining_for_current_steering_angle, extra_parameters);
+                for pos_x in 2:length(x)
+                    push!(path_x,x[pos_x])
+                end
+                for pos_y in 2:length(y)
+                    push!(path_y,y[pos_y])
+                end
+                initial_state = [last(path_x),last(path_y),last(theta)]
+                start_index = 2
+            else
+                initial_state = [env.cart.x,env.cart.y,env.cart.theta]
+                path_x, path_y = [env.cart.x],[env.cart.y]
+                start_index = 1
             end
-            push!(path_x,last(x))
-            push!(path_y,last(y))
-            initial_state = [last(x),last(y),last(theta)]
+            for steering_angle in env.cart_hybrid_astar_path[start_index:end]
+                extra_parameters = [1.0, env.cart.L, steering_angle]
+                x,y,theta = get_intermediate_points(initial_state, 1.0, extra_parameters);
+                for pos_x in 2:length(x)
+                    push!(path_x,x[pos_x])
+                end
+                for pos_y in 2:length(y)
+                    push!(path_y,y[pos_y])
+                end
+                initial_state = [last(x),last(y),last(theta)]
+            end
+            plot!(path_x,path_y,color="black")
         end
-        plot!(path_x,path_y,color="black")
     end
+
     annotate!(1.0, 25.0, text("S", :purple, :right, 20))
     annotate!(env.cart.goal.x, env.cart.goal.y, text("G", :purple, :right, 20))
     plot!(size=(plot_size,plot_size))
