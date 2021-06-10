@@ -173,7 +173,7 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
     push!(all_observed_environments,deepcopy(env_right_now))
     push!(all_generated_beliefs_using_complete_lidar_data, current_belief_over_complete_cart_lidar_data)
     push!(all_generated_beliefs, current_belief)
-    #push!(all_generated_trees, nothing)
+    push!(all_generated_trees, nothing)
 
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
@@ -193,7 +193,7 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
             @show(m.world.cart.x)
             b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
             a, info = action_info(planner, b)
-            write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string(a) )
+            write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string((a[1]*180/pi, a[2])) )
 
             if(env_right_now.cart.v!=0 && a[2] == -10.0)
                 number_of_sudden_stops += 1
@@ -268,7 +268,6 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
                 all_generated_trees,all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart,
                 cart_reached_goal_flag
-
 end
 
 function get_available_actions(b)
@@ -286,9 +285,19 @@ function get_available_actions(b)
         end
     end
     if(pomdp_state.cart.v == 0.0)
-        return [(delta_angle, 1.0),(-pi/4,1.0),(-pi/6,1.0),(-pi/12,1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,1.0),(pi/4,1.0)]
+        if(delta_angle==pi/4 || delta_angle==-pi/4)
+            return [(-pi/4,1.0),(-pi/6,1.0),(-pi/12,1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,1.0),(pi/4,1.0)]
+        else
+            return [(delta_angle, 1.0),(-pi/4,1.0),(-pi/6,1.0),(-pi/12,1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,1.0),(pi/4,1.0)]
+        end
     else
-        return [(delta_angle, 1.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+        if(delta_angle==pi/4 || delta_angle==-pi/4)
+            return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+        else
+            return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+        end
+        # return [(delta_angle, 1.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+        # return [(delta_angle, 1.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
     end
 end
 #@code_warntype get_available_actions(POMDP_state_2D_action_space(env.cart,env.humans))
@@ -302,14 +311,18 @@ if(run_simulation_flag)
     env_right_now = deepcopy(env)
 
     #Create POMDP for env_right_now
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,2.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now)
+    #POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,Int,Array{location,1}}
+    # discount_factor::Float64; pedestrian_distance_threshold::Float64; pedestrian_collision_penalty::Float64;
+    # obstacle_distance_threshold::Float64; obstacle_collision_penalty::Float64; goal_reward_distance_threshold::Float64;
+    # cart_goal_reached_distance_threshold::Float64; goal_reward::Float64; max_cart_speed::Float64; world::experiment_environment
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,0.5,-100.0,1.0,-100.0,0.0,1.0,1000.0,5.0,env_right_now)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     #actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
     actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions(b)
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100),
-                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true)
+                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
@@ -331,11 +344,35 @@ if(run_simulation_flag)
     gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 2)
 end
 
-
-# anim = @animate for i ∈ 1:length(just_2D_pomdp_all_gif_environments)
-#     display_env(just_2D_pomdp_all_gif_environments[i][2]);
-#     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
-# end
-# gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 20)
+#=
+anim = @animate for i ∈ 1:length(just_2D_pomdp_all_gif_environments)
+    display_env(just_2D_pomdp_all_gif_environments[i][2]);
+    #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
+end
+gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 20)
+=#
 
 #inchrome(D3Tree(just_2D_pomdp_all_generated_trees[9][:tree]))
+
+#Notes on the simulator!
+#=
+1) just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs and just_2D_pomdp_all_generated_trees have data for
+        Initial environment at index 1
+        Env from time step 0 to the end from index 2 onwards
+        Env at index 2 is obtained by just waiting and updating the belief over pedestrians in lidar data
+        Also, ith index in just_2D_pomdp_all_observed_environments implies the environment at time stamp (i-1).
+        i.e. just_2D_pomdp_all_observed_environments[23] is actually the environment at time stamp 22 seconds.
+
+2) just_2D_pomdp_all_gif_environments has the simulator data for every 0.1 second.
+        just_2D_pomdp_all_gif_environments[i][1] gives the simulator time stamp.
+        If just_2D_pomdp_all_gif_environments[i][1] is 22_6, then it means that env is for time step 22 sec to 23 seconds and 0.1*6=0.6 seconds after 22 seconds.
+        If it is 22_10, then it means that env is for 0.1*10=1 second after 22 seconds. So, essentially env at 23 seconds
+        The next one would be 23_1. There is nothing of the format 23_0 (equivalent of that is 22_10). 23_1 means that env is for 0.1 second after 23 seconds.
+        So, 22_6 essentially implies that this corresponds to the simulator starting from environment at index 23 in just_2D_pomdp_all_observed_environments.
+        i.e. a_b corresponds to environment at index a+1 in just_2D_pomdp_all_observed_environments when b is not equal to 10
+             When b = 10, it corresponds to environment at index a+2 in just_2D_pomdp_all_observed_environments
+             In short, we can say a_b corresponds to environment at index floor(a+1+(0.1*b)) in just_2D_pomdp_all_observed_environments
+        If, just_2D_pomdp_all_gif_environments[i][1] is 22_6, then i is 227. So, a_b is at index (10*a)+b+1
+        Also, just_2D_pomdp_all_observed_environments[i] === just_2D_pomdp_all_gif_environments [(i-1)*10 + 1]
+        The index for just_2D_pomdp_all_generated_trees is same as the index for just_2D_pomdp_all_observed_environments.
+=#
