@@ -147,7 +147,7 @@ function hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_en
     return final_updated_belief, number_risks
 end
 
-function run_one_simulation(env_right_now,user_defined_rng, m, planner)
+function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m, planner)
 
     time_taken_by_cart = 0
     number_risks = 0
@@ -158,6 +158,7 @@ function run_one_simulation(env_right_now,user_defined_rng, m, planner)
     cone_half_angle = 2*pi/3.0
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_near_goal_flag = false
+    cart_reached_goal_flag = true
     filename = "output_resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner.txt"
     cart_throughout_path = []
     all_gif_environments = []
@@ -292,12 +293,13 @@ function run_one_simulation(env_right_now,user_defined_rng, m, planner)
         close(io)
         time_taken_by_cart += 1
         if(time_taken_by_cart>100)
+            cart_reached_goal_flag = false
             break
         end
     end
 
     io = open(filename,"a")
-    if(cart_ran_into_boundary_wall_near_goal_flag == false)
+    if(cart_ran_into_boundary_wall_near_goal_flag == false && cart_reached_goal_flag == true)
         write_and_print( io, "Goal Reached! :D" )
         write_and_print( io, "Time Taken by cart to reach goal : " * string(time_taken_by_cart) )
     else
@@ -309,10 +311,11 @@ function run_one_simulation(env_right_now,user_defined_rng, m, planner)
     close(io)
 
     return all_gif_environments, all_observed_environments, all_generated_beliefs, all_generated_trees,
-                all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart
+                all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart,
+                cart_reached_goal_flag
 end
 
-run_simulation_flag = true
+run_simulation_flag = false
 if(run_simulation_flag)
     gr()
     env = generate_environment_no_obstacles(300,MersenneTwister(11))
@@ -328,13 +331,14 @@ if(run_simulation_flag)
     #actions(::POMDP_Planner_1D_action_space) = Float64[-0.5, 0.0, 0.5, -10.0]
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
-            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=100,D=20,T_max=0.3, tree_in_info=true)
+            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=0.3, tree_in_info=true)
     planner = POMDPs.solve(solver, golfcart_1D_action_space_pomdp);
     #m = golfcart_1D_action_space_pomdp()
 
     astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs,
         astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_number_risks,
-        astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart = run_one_simulation(env_right_now, MersenneTwister(111),
+        astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
+        astar_1D_cart_reached_goal_flag = run_one_simulation_1D_POMDP_planner(env_right_now, MersenneTwister(111),
                                                                                     golfcart_1D_action_space_pomdp, planner)
 
     anim = @animate for i ∈ 1:length(astar_1D_all_observed_environments)
