@@ -305,7 +305,7 @@ end
 run_simulation_flag = true
 if(run_simulation_flag)
     gr()
-    env = generate_environment_no_obstacles(300, MersenneTwister(15))
+    env = generate_environment_no_obstacles(300, MersenneTwister(11))
     # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
     # env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
     env_right_now = deepcopy(env)

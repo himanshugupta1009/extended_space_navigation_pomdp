@@ -1,5 +1,0 @@
-Questions
-
-How to pass extra_parameters to Generative function?
-
-If we have two generative functions in the same place, what happens?  Is it possible to do so?

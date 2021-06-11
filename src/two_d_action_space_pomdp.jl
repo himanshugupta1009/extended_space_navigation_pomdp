@@ -272,7 +272,6 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         cart_reached_goal_flag = true
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
         push!(observed_positions, location(-25.0,-25.0))
-        #println("YOLO")
     elseif( (s.cart.x>m.world.length) || (s.cart.y>m.world.breadth) || (s.cart.x<0.0) || (s.cart.y<0.0) )
         #print("Running into wall")
         new_cart_position = (-100.0, -100.0, -100.0)

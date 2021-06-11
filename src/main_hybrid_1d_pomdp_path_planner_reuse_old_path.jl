@@ -315,7 +315,7 @@ end
 run_simulation_flag = true
 if(run_simulation_flag)
     gr()
-    env = generate_environment_no_obstacles(300,MersenneTwister(15))
+    env = generate_environment_no_obstacles(300,MersenneTwister(11))
     # env = generate_environment_small_circular_obstacles(300,MersenneTwister(15))
     # env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
     env_right_now = deepcopy(env)
@@ -347,8 +347,8 @@ end
 
 #=
 anim = @animate for i ∈ 1:length(astar_1D_all_gif_environments)
-    println(astar_1D_all_gif_environments[i][1])
     display_env(astar_1D_all_gif_environments[i][2],astar_1D_all_gif_environments[i][1]);
+    #println(astar_1D_all_gif_environments[i][1])
     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
 end
 gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 20)
