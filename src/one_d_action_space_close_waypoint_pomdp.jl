@@ -178,7 +178,10 @@ function update_cart_position_pomdp_planning(current_cart_position, new_cart_vel
             current_x, current_y,current_theta = new_x,new_y,new_theta
             starting_index = starting_index + 1
             if(starting_index>length_hybrid_a_star_path)
-                break
+                for j in i+1:new_cart_velocity
+                    push!(cart_path,(current_x, current_y, current_theta))
+                end
+                return cart_path
             end
         end
     end
@@ -186,7 +189,6 @@ function update_cart_position_pomdp_planning(current_cart_position, new_cart_vel
 end
 # @code_warntype update_cart_position_pomdp_planning(env.cart, 0.0, 1, env)
 # update_cart_position_pomdp_planning(env.cart, 0, 1, env)
-
 
 
 #************************************************************************************************
@@ -239,7 +241,6 @@ function immediate_stop_penalty_pomdp_planning(immediate_stop_flag, penalty)
 end
 
 
-
 #************************************************************************************************
 #POMDP Generative Model
 
@@ -255,40 +256,53 @@ function POMDPs.gen(m::POMDP_Planner_1D_action_space, s, a, rng)
 
     if(is_within_range(location(s.cart.x,s.cart.y), s.cart.goal, m.cart_goal_reached_distance_threshold))
         new_cart_position = (-100.0, -100.0, -100.0)
-        #@show("Goal reached",s)
         cart_reached_goal_flag = true
         new_cart_velocity = clamp(s.cart.v + a, 0.0, m.max_cart_speed)
+        push!(observed_positions, location(-25.0,-25.0))
     elseif(s.current_path_covered_index>length(m.world.cart_hybrid_astar_path))
         new_cart_position = (-100.0, -100.0, -100.0)
         cart_reached_goal_flag = true
         new_cart_velocity = clamp(s.cart.v + a, 0.0, m.max_cart_speed)
-    elseif(a == -10.0)
-        new_cart_position = (-100.0, -100.0, -100.0)
-        immediate_stop_flag = true
-        new_cart_velocity = clamp(s.cart.v + a, 0.0, m.max_cart_speed)
+        push!(observed_positions, location(-25.0,-25.0))
+    # elseif(a == -10.0)
+        # new_cart_position = (-100.0, -100.0, -100.0)
+        # immediate_stop_flag = true
+        # new_cart_velocity = clamp(s.cart.v + a, 0.0, m.max_cart_speed)
     else
+        if(a == -10.0)
+            immediate_stop_flag = true
+        end
         new_cart_velocity =clamp(s.cart.v + a, 0.0, m.max_cart_speed)
         cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning(s.cart, new_cart_velocity, s.current_path_covered_index, m.world)
         new_cart_position = cart_path[end]
-        for position in cart_path
-            for human in s.pedestrians
-                if( is_within_range_check_with_points(position[1],position[2], human.x, human.y, m.pedestrian_distance_threshold) )
-                    #@show("Collision happened",s)
-                    new_cart_position = (-100.0, -100.0, -100.0)
-                    collision_with_pedestrian_flag = true
-                    break
+
+        #Check if there is a collision with any pedestrian during the cart's path.
+        #Simulate all the pedestrians.
+        for human in s.pedestrians
+            modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
+            push!(new_human_states, modified_human_state)
+            push!(observed_positions, observed_location)
+        end
+        if(new_cart_velocity!=0.0)
+            for time_index in 1:(Int(new_cart_velocity)+1)
+                for human_index in 1:length(s.pedestrians)
+                    intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
+                                                                    new_human_states[human_index].x,new_human_states[human_index].y, (1/new_cart_velocity)*(time_index-1) )
+                    if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
+                                                intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
+                        new_cart_position = (-100.0, -100.0, -100.0)
+                        collision_with_pedestrian_flag = true
+                        observed_positions = location[ location(-50.0,-50.0) ]
+                        break
+                    end
                 end
             end
+        else
+            #Don't do anything
         end
     end
-    # Simulate all the pedestrians
-    for human in s.pedestrians
-        modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
-        push!(new_human_states, modified_human_state)
-        push!(observed_positions, observed_location)
-    end
-    cart_new_state = cart_state(new_cart_position[1], new_cart_position[2], new_cart_position[3], new_cart_velocity, s.cart.L, s.cart.goal)
 
+    cart_new_state = cart_state(new_cart_position[1], new_cart_position[2], new_cart_position[3], new_cart_velocity, s.cart.L, s.cart.goal)
     # Generate starting index in Hybrid A* path for the next POMPD state
     new_path_index = s.current_path_covered_index + new_cart_velocity
 
@@ -324,12 +338,16 @@ end
 #Upper bound and lower bound values for DESPOT
 
 function is_collision_state_pomdp_planning_1D_action_space(s,m)
-    for human in s.pedestrians
-        if( is_within_range_check_with_points(s.cart.x,s.cart.y, human.x, human.y, m.pedestrian_distance_threshold) )
-            return true
+    if(s.cart.v == 0.0)
+        return false
+    else
+        for human in s.pedestrians
+            if( is_within_range_check_with_points(s.cart.x,s.cart.y, human.x, human.y, m.pedestrian_distance_threshold) )
+                return true
+            end
         end
+        return false
     end
-    return false
 end
 
 function time_to_goal_pomdp_planning_1D_action_space(s,m)
