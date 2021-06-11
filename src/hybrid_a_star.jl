@@ -148,10 +148,10 @@ function get_action_cost(environment, humans_to_avoid, final_x::Float64, final_y
     total_cost::Float64 = 0.0
 
     #Cost from going out of bounds
-    if(final_x<=0.0 || final_x>=env.length)
+    if(final_x<=0.0 || final_x>=environment.length)
         return Inf
     end
-    if(final_y<=0.0 || final_y>=env.breadth)
+    if(final_y<=0.0 || final_y>=environment.breadth)
         return Inf
     end
 
