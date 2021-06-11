@@ -116,7 +116,7 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
     return final_updated_belief, number_risks
 end
 
-function run_one_simulation(env_right_now, user_defined_rng, m, planner)
+function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m, planner)
 
     time_taken_by_cart = 0
     number_risks = 0
@@ -180,7 +180,7 @@ function run_one_simulation(env_right_now, user_defined_rng, m, planner)
 
     #Start Simulating for t>1
     while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
-        display_env(env_right_now)
+        #display_env(env_right_now)
         io = open(filename,"a")
         if( (env_right_now.cart.x<=100.0 && env_right_now.cart.y<=100.0 && env_right_now.cart.x>=0.0 && env_right_now.cart.y>=0.0) )
 
@@ -302,7 +302,7 @@ function get_available_actions(b)
 end
 #@code_warntype get_available_actions(POMDP_state_2D_action_space(env.cart,env.humans))
 
-run_simulation_flag = true
+run_simulation_flag = false
 if(run_simulation_flag)
     gr()
     env = generate_environment_no_obstacles(300, MersenneTwister(11))
@@ -333,7 +333,7 @@ if(run_simulation_flag)
     just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
             just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios,
             just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
-            just_2D_pomdp_cart_reached_goal_flag = run_one_simulation(env_right_now, MersenneTwister(111),
+            just_2D_pomdp_cart_reached_goal_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(111),
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
     anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
