@@ -155,7 +155,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m, 
     lidar_range = 30
     num_humans_to_care_about_while_generating_hybrid_astar_path = 6
     num_humans_to_care_about_while_pomdp_planning = 6
-    cone_half_angle = 2*pi/3.0
+    cone_half_angle = pi/1.0
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_near_goal_flag = false
     cart_reached_goal_flag = true
