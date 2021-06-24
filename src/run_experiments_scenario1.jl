@@ -203,7 +203,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
 
 		#Find in how many experiments cart actually reached the goal without colliding into boundary wall or static obstacles
 		if(astar_1D_cart_reached_goal_flag)
-			num_times_cart_reached_goal_2D_POMDP_planner += 1
+			num_times_cart_reached_goal_1D_POMDP_planner += 1
 		end
 
 		#Find in how many experiments cart reached the goal without encountering a risky scenario.
