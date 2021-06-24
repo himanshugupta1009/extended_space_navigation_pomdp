@@ -416,10 +416,9 @@ function get_belief_for_selected_humans_from_belief_over_complete_lidar_data(bel
     return shortlisted_belief
 end
 
-function respawn_humans_in_environment(world, lidar_range, num_humans_to_care_about_while_pomdp_planning,
-                                                        cone_half_angle, current_belief, user_defined_rng_for_env)
+function respawn_humans(world, user_defined_rng_for_env)
 
-    old_world = deepcopy(world)
+    total_humans_respawned_so_far = world.num_humans - world.max_num_humans
     num_humans_already_at_goal = 0
     for human in world.humans
         if( (human.x == human.goal.x) && (human.y == human.goal.y) )
@@ -428,38 +427,90 @@ function respawn_humans_in_environment(world, lidar_range, num_humans_to_care_ab
     end
 
     total_number_of_humans = length(world.humans)
-    total_humans_not_at_goal = total_number_of_humans - num_humans_already_at_goal
+    num_humans_to_be_respawned = num_humans_already_at_goal - total_humans_respawned_so_far
 
-    if( total_humans_not_at_goal < world.num_humans)
-        for i in 1:total_humans_not_at_goal
-            rand_num = rand(user_defined_rng_for_env)
-            if(rand_num > 0.5)
-                x = world.length
-                y = floor(100*rand_num)
-                while(is_within_range_check(x,y,world.cart.goal.x,world.cart.goal.y,5.0))
-                    y = floor(100*rand(user_defined_rng))
-                end
-                new_human_state = human_state(x,y,1.0,world.goals[Int(ceil(rand(user_defined_rng)*4))], float(length(world.humans) + 1))
-            else
-                x = 0.0
-                y = floor(100*rand_num)
-                while(is_within_range_check(x,y,world.cart.goal.x,world.cart.goal.y,5.0))
-                    y = floor(100*rand(user_defined_rng))
-                end
-                new_human_state = human_state(x,y,1.0,world.goals[Int(ceil(rand(user_defined_rng)*4))], float(length(world.humans) + 1))
+    while(num_humans_to_be_respawned!=0)
+
+        rand_num = rand(user_defined_rng_for_env)
+        rand_num_to_choose_side = floor(4*rand_num)
+
+        #rand_num_to_choose_side == 0 represents the left edge of the square
+        if( rand_num_to_choose_side == 0.0 )
+            new_human_x = 0.0
+            new_human_y = floor(100*rand_num)
+            while(is_within_range_check_with_points(new_human_x,new_human_y,world.cart_start_location.x,
+                        world.cart_start_location.y,15.0) && is_within_range_check_with_points(new_human_x,new_human_y,
+                        world.cart.goal.x,world.cart.goal.y,15.0) )
+                new_human_y = floor(100*rand(user_defined_rng_for_env))
             end
-            push!(world.humans,new_human_state)
+            #Possible Goal locations for this human are G3(100,100) and G4(100,0)
+            new_human_goal = world.goals[Int(ceil(rand(user_defined_rng_for_env)*2) + 2)]
+            new_human_state = human_state(new_human_x,new_human_y,1,new_human_goal, Float64(total_number_of_humans + 1))
+            total_number_of_humans += 1
+        #rand_num_to_choose_side == 1 represents the top edge of the square
+        elseif( rand_num_to_choose_side == 1.0 )
+            new_human_y = 100.0
+            new_human_x = floor(100*rand_num)
+            while(is_within_range_check_with_points(new_human_x,new_human_y,world.cart_start_location.x,
+                        world.cart_start_location.y,15.0) || is_within_range_check_with_points(new_human_x,new_human_y,
+                        world.cart.goal.x,world.cart.goal.y,15.0) )
+                new_human_x = floor(100*rand(user_defined_rng_for_env))
+            end
+            #Possible Goal locations for this human are G1(0,0) and G4(100,0)
+            if( rand(user_defined_rng_for_env) > 0.5)
+                new_human_goal = world.goals[4]
+            else
+                new_human_goal = world.goals[1]
+            end
+            new_human_state = human_state(new_human_x,new_human_y,1,new_human_goal, Float64(total_number_of_humans + 1))
+            total_number_of_humans += 1
+        #rand_num_to_choose_side == 2 represents the right edge of the square
+        elseif( rand_num_to_choose_side == 2.0 )
+            new_human_x = 100.0
+            new_human_y = floor(100*rand_num)
+            while(is_within_range_check_with_points(new_human_x,new_human_y,world.cart_start_location.x,
+                        world.cart_start_location.y,15.0) || is_within_range_check_with_points(new_human_x,new_human_y,
+                        world.cart.goal.x,world.cart.goal.y,15.0) )
+                new_human_y = floor(100*rand(user_defined_rng_for_env))
+            end
+            #Possible Goal locations for this human are G1(0,0) and G2(0,100)
+            new_human_goal = world.goals[Int(ceil(rand(user_defined_rng_for_env)*2))]
+            new_human_state = human_state(new_human_x,new_human_y,1,new_human_goal, Float64(total_number_of_humans + 1))
+            total_number_of_humans += 1
+        #rand_num_to_choose_side == 3 represents the bottom edge of the square
+        elseif( rand_num_to_choose_side == 3.0 )
+            new_human_y = 0.0
+            new_human_x = floor(100*rand_num)
+            while(is_within_range_check_with_points(new_human_x,new_human_y,world.cart_start_location.x,
+                        world.cart_start_location.y,15.0) || is_within_range_check_with_points(new_human_x,new_human_y,
+                        world.cart.goal.x,world.cart.goal.y,15.0) )
+                new_human_x = floor(100*rand(user_defined_rng_for_env))
+            end
+            #Possible Goal locations for this human are G2(0,100) and G3(100,100)
+            new_human_goal = world.goals[Int(ceil(rand(user_defined_rng_for_env)*2) + 1)]
+            new_human_state = human_state(new_human_x,new_human_y,1,new_human_goal, Float64(total_number_of_humans + 1))
+            total_number_of_humans += 1
         end
-        world.cart_lidar_data = get_lidar_data(world,lidar_range)
-        world.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(world.cart,
-                                                            world.cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
 
-        updated_belief = update_belief_from_old_world_and_new_world(current_belief, old_world, env_right_now)
-
-    else
-        updated_belief = current_belief
+        push!(world.humans, new_human_state)
+        world.num_humans += 1
+        num_humans_to_be_respawned -= 1
     end
+end
 
-    return current_belief
+function check_if_cart_collided_with_boundary_wall(world)
+    if( (world.cart.x<=world.length && world.cart.y<=world.breadth && world.cart.x>=0.0 && world.cart.y>=0.0) )
+        return false
+    else
+        return true
+    end
+end
+
+function check_if_cart_collided_with_static_obstacles(world)
+    for obstacle in world.obstacles
+        if(is_within_range_check_with_points(world.cart.x, world.cart.y, obstacle.x, obstacle.y, obstacle.r))
+            return true
+        end
+    end
+    return false
 end
