@@ -142,7 +142,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     all_generated_beliefs_using_complete_lidar_data = []
     all_generated_trees = []
     all_risky_scenarios = []
-
+    MAX_TIME_LIMIT = 300
+    
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
     env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
@@ -240,7 +241,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
             write_and_print( io, "************************************************************************" )
             push!(cart_throughout_path,(copy(env_right_now.cart)))
             time_taken_by_cart += 1
-            if(time_taken_by_cart>100)
+            if(time_taken_by_cart>MAX_TIME_LIMIT)
                 cart_reached_goal_flag = false
                 break
             end
