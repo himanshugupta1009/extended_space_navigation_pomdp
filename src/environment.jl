@@ -41,6 +41,7 @@ end
 mutable struct experiment_environment
     length::Float64
     breadth::Float64
+    max_num_humans::Float64
     num_humans::Int64
     goals::Array{location,1}
     humans::Array{human_state,1}
@@ -49,6 +50,7 @@ mutable struct experiment_environment
     cart_lidar_data::Array{human_state,1}
     complete_cart_lidar_data::Array{human_state,1}
     cart_hybrid_astar_path::Array{Float64,1}
+    cart_start_location::location
 end
 
 #Define the Environment
@@ -80,9 +82,9 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
         push!(human_state_start_list,human)
     end
 
-    world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
+    world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[])
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
 
     return world
 end
@@ -129,9 +131,9 @@ function generate_environment_small_circular_obstacles(number_of_humans,user_def
         push!(human_state_start_list,human)
     end
 
-    world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
+    world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[])
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
 
     return world
 end
@@ -167,9 +169,9 @@ function generate_environment_large_circular_obstacles(number_of_humans,user_def
         push!(human_state_start_list,human)
     end
 
-    world = experiment_environment(world_length,world_breadth,length(human_state_start_list),
+    world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[])
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
 
     return world
 end
