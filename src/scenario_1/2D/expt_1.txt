@@ -113,5 +113,5 @@ Modified cart state = cart_state(101.0, 25.0, 0.0, 5.0, 1.0, location(100.0, 75.
 ************************************************************************
 Cart ran into a boundary wall in the environment
 happened : 23
-Number of risky scenarios encountered by the cart : 9
+Number of risky scenarios encountered by the cart : 4
 Number of sudden stops taken by the cart : 0
