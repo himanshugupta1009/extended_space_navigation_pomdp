@@ -37,6 +37,9 @@ function simulate_pedestrians_and_generate_gif_environments_when_cart_stationary
     env_before_humans_simulated_for_second_half_second = deepcopy(env_right_now)
     for i in 6:10
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
+        if(i==10)
+            respawn_humans(env_right_now, user_defined_rng)
+        end
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
@@ -96,6 +99,9 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
         x,y,theta = get_intermediate_points(initial_state, 0.1, extra_parameters);
         env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = last(x), last(y), last(theta)
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
+        if(i==10)
+            respawn_humans(env_right_now, user_defined_rng)
+        end
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
@@ -116,19 +122,19 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
     return final_updated_belief, number_risks
 end
 
-function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m, planner)
+function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
+                            planner, filename = "output_just_2d_action_space_pomdp_planner.txt")
 
     time_taken_by_cart = 0
     number_risks = 0
     one_time_step = 0.5
     lidar_range = 30
     num_humans_to_care_about_while_pomdp_planning = 6
-    #cone_half_angle = (pi)/3.0
-    cone_half_angle = (1.0)*pi
+    cone_half_angle::Float64 = (2/3)*pi
     number_of_sudden_stops = 0
-    cart_ran_into_boundary_wall_near_goal_flag = false
+    cart_ran_into_boundary_wall_flag = false
+    cart_ran_into_static_obstacle_flag = false
     cart_reached_goal_flag = true
-    filename = "output_just_2d_action_space_pomdp_planner.txt"
     cart_throughout_path = []
     all_gif_environments = []
     all_observed_environments = []
@@ -136,7 +142,6 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     all_generated_beliefs_using_complete_lidar_data = []
     all_generated_trees = []
     all_risky_scenarios = []
-    reached_goal_flag = false
 
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
@@ -182,8 +187,9 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
         #display_env(env_right_now)
         io = open(filename,"a")
-        if( (env_right_now.cart.x<=100.0 && env_right_now.cart.y<=100.0 && env_right_now.cart.x>=0.0 && env_right_now.cart.y>=0.0) )
-
+        cart_ran_into_boundary_wall_flag = check_if_cart_collided_with_boundary_wall(env_right_now)
+        cart_ran_into_static_obstacle_flag = check_if_cart_collided_with_static_obstacles(env_right_now)
+        if( !cart_ran_into_boundary_wall_flag && !cart_ran_into_static_obstacle_flag )
 
             write_and_print( io, "Simulating for time interval - (" * string(time_taken_by_cart) * " , " * string(time_taken_by_cart+1) * ")" )
             write_and_print( io, "Current cart state = " * string(env_right_now.cart) )
@@ -233,19 +239,21 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
             write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
             write_and_print( io, "************************************************************************" )
             push!(cart_throughout_path,(copy(env_right_now.cart)))
-
+            time_taken_by_cart += 1
+            if(time_taken_by_cart>100)
+                cart_reached_goal_flag = false
+                break
+            end
         else
-            write_and_print( io, "Cart ran into Boundary Walls")
-            cart_ran_into_boundary_wall_near_goal_flag = true
+            if(cart_ran_into_static_obstacle_flag)
+                write_and_print( io, "Cart ran into a static obstacle in the environment")
+            elseif (cart_ran_into_boundary_wall_flag)
+                write_and_print( io, "Cart ran into a boundary wall in the environment")
+            end
             cart_reached_goal_flag = false
             break
         end
         close(io)
-        time_taken_by_cart += 1
-        if(time_taken_by_cart>100)
-            cart_reached_goal_flag = false
-            break
-        end
     end
 
     io = open(filename,"a")
@@ -253,9 +261,12 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
         write_and_print( io, "Goal Reached! :D" )
         write_and_print( io, "Time Taken by cart to reach goal : " * string(time_taken_by_cart) )
     else
-        if(cart_ran_into_boundary_wall_near_goal_flag == true)
+        if(cart_ran_into_boundary_wall_flag)
             write_and_print( io, "Cart ran into a wall :(" )
-            write_and_print( io, "Time Taken by cart to run into a wall : " * string(time_taken_by_cart) )
+            write_and_print( io, "Time elapsed before this happened : " * string(time_taken_by_cart) )
+        elseif cart_ran_into_static_obstacle_flag
+            write_and_print( io, "Cart ran into a static obstacle :(" )
+            write_and_print( io, "Time elapsed before this happened : " * string(time_taken_by_cart) )
         else
             write_and_print( io, "Cart ran out of time :(" )
             write_and_print( io, "Time Taken by cart when it didn't reach the goal : " * string(time_taken_by_cart) )
@@ -267,7 +278,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
 
     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
                 all_generated_trees,all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart,
-                cart_reached_goal_flag
+                cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
 end
 
 function get_available_actions(b)
@@ -305,7 +316,7 @@ end
 run_simulation_flag = false
 if(run_simulation_flag)
     gr()
-    env = generate_environment_no_obstacles(300, MersenneTwister(11))
+    env = generate_environment_no_obstacles(300, MersenneTwister(523))
     # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
     # env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
     env_right_now = deepcopy(env)
@@ -329,11 +340,11 @@ if(run_simulation_flag)
 
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
 
-    display_env(golfcart_2D_action_space_pomdp.world)
     just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
             just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios,
             just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
-            just_2D_pomdp_cart_reached_goal_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(111),
+            just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
+            just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(111),
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
     anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
