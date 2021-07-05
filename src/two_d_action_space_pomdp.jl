@@ -287,7 +287,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
             immediate_stop_flag = true
         end
         new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
-        num_time_intervals = 5
+        num_time_intervals = 2
         cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a[1], new_cart_velocity, m.world.length,
                                                                                         m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
         new_cart_position = cart_path[end]
