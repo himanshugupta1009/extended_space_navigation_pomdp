@@ -354,7 +354,7 @@ if(run_simulation_flag)
     env_right_now = deepcopy(env)
 
     #Create POMDP for hybrid_a_star + POMDP speed planners at every time step
-    golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,0.5,-100.0,1.0,1.0,1000.0,5.0,env_right_now,1)
+    golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,1.0,-100.0,1.0,1.0,1000.0,2.0,env_right_now,1)
     discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]

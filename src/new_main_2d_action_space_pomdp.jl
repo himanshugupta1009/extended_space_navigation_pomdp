@@ -143,7 +143,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     all_generated_trees = []
     all_risky_scenarios = []
     MAX_TIME_LIMIT = 300
-    
+
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
     env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
@@ -327,7 +327,7 @@ if(run_simulation_flag)
     # discount_factor::Float64; pedestrian_distance_threshold::Float64; pedestrian_collision_penalty::Float64;
     # obstacle_distance_threshold::Float64; obstacle_collision_penalty::Float64; goal_reward_distance_threshold::Float64;
     # cart_goal_reached_distance_threshold::Float64; goal_reward::Float64; max_cart_speed::Float64; world::experiment_environment
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,0.5,-100.0,1.0,-100.0,0.0,1.0,1000.0,5.0,env_right_now)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     #actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]

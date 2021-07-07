@@ -1,5 +1,8 @@
 using Plots
 using Random
+using MetaGraphs
+using LightGraphs
+using Revise
 
 #Global Variables
 plot_size = 1000; #number of pixels
@@ -51,6 +54,7 @@ mutable struct experiment_environment
     complete_cart_lidar_data::Array{human_state,1}
     cart_hybrid_astar_path::Array{Float64,1}
     cart_start_location::location
+    graph::MetaGraph
 end
 
 #Define the Environment
@@ -84,7 +88,7 @@ function generate_environment_no_obstacles(number_of_humans, user_defined_rng)
 
     world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y), MetaGraph())
 
     return world
 end
@@ -133,7 +137,7 @@ function generate_environment_small_circular_obstacles(number_of_humans,user_def
 
     world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y), MetaGraph())
 
     return world
 end
@@ -171,13 +175,13 @@ function generate_environment_large_circular_obstacles(number_of_humans,user_def
 
     world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
                     all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
-                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y), MetaGraph())
 
     return world
 end
 
 #Function to display the environment
-function display_env(env::experiment_environment, gif_env_num=nothing)
+function display_env(env::experiment_environment, gif_env_num=nothing, vertex_tuple = nothing)
 
     #Plot Boundaries
     p = plot([0.0],[0.0],legend=false,grid=false)
@@ -280,6 +284,32 @@ function display_env(env::experiment_environment, gif_env_num=nothing)
                 initial_state = [last(x),last(y),last(theta)]
             end
             plot!(path_x,path_y,color="black")
+        end
+    end
+
+    #Plot the PRM vertices
+    for i in 1:nv(env.graph)
+        if(i!=3)
+            scatter!([get_prop(env.graph,i,:x)], [get_prop(env.graph,i,:y)],color="Grey",shape=:circle,msize=0.3*plot_size/env.length)
+        end
+    end
+
+    #Format of vertex_tuple -> (current_vertex, parent_vertex)
+    if(vertex_tuple != nothing)
+        for n in neighbors(env.graph, vertex_tuple[1])
+            if( n!= vertex_tuple[2] && n!=3 )
+                plot!( [get_prop(env.graph,vertex_tuple[1],:x),get_prop(env.graph,n,:x)], [get_prop(env.graph,vertex_tuple[1],:y),
+                                                                    get_prop(env.graph,n,:y)], color="LightGrey")
+            end
+        end
+    else
+        #Plot all the PRM edges
+        all_edges = collect(edges(env.graph))
+        for edge in all_edges
+            if( get_prop(env.graph,edge.dst,:x) != -100.0 )
+                plot!( [get_prop(env.graph,edge.src,:x),get_prop(env.graph,edge.dst,:x) ], [get_prop(env.graph,edge.src,:y),get_prop(env.graph,edge.dst,:y)], color="LightGrey")
+            end
+            # scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
         end
     end
 
