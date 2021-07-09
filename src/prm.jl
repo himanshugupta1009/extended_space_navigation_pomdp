@@ -81,80 +81,7 @@ end
 function generate_prm_edges(world, num_nearest_nebhrs)
 
     dist_dict = Dict{Int, Array{Tuple{Int64,Float64},1}}()
-    max_edge_weight_threshold = 5.0
-    for i in 1:nv(world.graph)
-        dist_array =  Array{Tuple{Int64,Float64},1}()
-        if(i == 3)
-            dist_array = repeat([(-10,-10)],nv(world.graph))
-        else
-            for j in 1:nv(world.graph)
-                if(i==j)
-                    push!(dist_array, (j,0.0))
-                elseif(j==3)
-                    push!(dist_array, (j,-10.0))
-                else
-                    push!( dist_array, (j,get_distance_between_two_prm_vertices(world.graph,i,j)) )
-                end
-            end
-        end
-        dist_dict[i] = sort(dist_array, by = x->x[2])
-    end
-    #return dist_dict
-    for i in 1:nv(world.graph)
-        if(i!=3)
-            add_edge!(world.graph,i,3,:weight, 0.0)
-        end
-    end
-    keep_adding_edge_flag = true
-    j=3
-    while( keep_adding_edge_flag && j<=nv(world.graph) )
-        for i in 1:nv(world.graph)
-            if(i!=3)
-                num_out_edges_from_i = length( neighbors(world.graph,i) )
-                num_out_edges_from_j = length( neighbors(world.graph,dist_dict[i][j][1]) )
-                if( (num_out_edges_from_i < num_nearest_nebhrs) && (num_out_edges_from_j < num_nearest_nebhrs) )
-                    if( !has_edge(world.graph,i,dist_dict[i][j][1]) )
-                        add_edge_flag = true
-                        for obstacle in world.obstacles
-                            if( find_if_circle_and_line_segment_intersect(obstacle.x,obstacle.y,obstacle.r+2,get_prop(world.graph,i,:x),
-                                get_prop(world.graph,i,:y),get_prop(world.graph,dist_dict[i][j][1],:x),get_prop(world.graph,dist_dict[i][j][1],:y)) )
-                                add_edge_flag = false
-                            end
-                        end
-                        if(add_edge_flag && dist_dict[i][j][2]<=max_edge_weight_threshold)
-                            add_edge!(world.graph,i,dist_dict[i][j][1], :weight, dist_dict[i][j][2] )
-                            add_edge!(world.graph,dist_dict[i][j][1],i, :weight, dist_dict[i][j][2] )
-                        end
-                    end
-                end
-            end
-        end
-        j+=1
-    end
 
-    for i in 1:nv(world.graph)
-        path_to_goal = Int64[]
-        if(i!=3)
-            dsp = dijkstra_shortest_paths(world.graph, i)
-            curr_par = 2
-            while(curr_par!=0)
-                push!(path_to_goal,curr_par)
-                curr_par = dsp.parents[curr_par]
-            end
-            reverse!(path_to_goal)
-            set_prop!(world.graph, i, :dist_to_goal, dsp.dists[2])
-            set_prop!(world.graph, i, :path_to_goal, path_to_goal)
-        else
-            set_prop!(world.graph, i, :dist_to_goal, Inf)
-            set_prop!(world.graph, i, :path_to_goal, path_to_goal)
-        end
-    end
-    return dist_dict
-end
-
-function old_generate_prm_edges(world, num_nearest_nebhrs)
-
-    dist_dict = Dict{Int, Array{Tuple{Int64,Float64},1}}()
     for i in 1:nv(world.graph)
         dist_array =  Array{Tuple{Int64,Float64},1}()
         for j in 1:nv(world.graph)
@@ -166,35 +93,29 @@ function old_generate_prm_edges(world, num_nearest_nebhrs)
         end
         dist_dict[i] = sort(dist_array, by = x->x[2])
     end
+
     for i in 1:nv(world.graph)
-        if(i!=3)
-            j = 3
-            num_out_edges = length( neighbors(world.graph,i) )
-            while(num_out_edges<num_nearest_nebhrs && j<=nv(world.graph))
-                if(has_edge(world.graph,i,dist_dict[i][j][1]))
-                    # num_out_edges +=1
-                    #Don't do anything
-                else
-                    add_edge_flag = true
-                    for obstacle in world.obstacles
-                        if( find_if_circle_and_line_segment_intersect(obstacle.x,obstacle.y,obstacle.r+2,get_prop(world.graph,i,:x),
-                            get_prop(world.graph,i,:y),get_prop(world.graph,dist_dict[i][j][1],:x),get_prop(world.graph,dist_dict[i][j][1],:y)) )
-                            add_edge_flag = false
-                        end
-                    end
-                    if( length(neighbors(world.graph,dist_dict[i][j][1])) >= num_nearest_nebhrs )
+        j = 3
+        num_out_edges = 0
+        while(num_out_edges<num_nearest_nebhrs && j<=nv(world.graph))
+            if(has_edge(world.graph,i,dist_dict[i][j][1]))
+                num_out_edges +=1
+                #Don't do anything
+            else
+                add_edge_flag = true
+                for obstacle in world.obstacles
+                    if( find_if_circle_and_line_segment_intersect(obstacle.x,obstacle.y,obstacle.r+2,get_prop(world.graph,i,:x),
+                        get_prop(world.graph,i,:y),get_prop(world.graph,dist_dict[i][j][1],:x),get_prop(world.graph,dist_dict[i][j][1],:y)) )
                         add_edge_flag = false
                     end
-                    if(add_edge_flag)
-                        add_edge!(world.graph,i,dist_dict[i][j][1], :weight, dist_dict[i][j][2] )
-                        add_edge!(world.graph,dist_dict[i][j][1],i, :weight, dist_dict[i][j][2] )
-                        # set_prop!(world.graph, Edge(i, dist_dict[i][j][1]), :weight, dist_dict[i][j][2])
-                        num_out_edges +=1
-                    end
                 end
-                j +=1
+                if(add_edge_flag)
+                    add_edge!(world.graph,i,dist_dict[i][j][1], :weight, dist_dict[i][j][2] )
+                    # set_prop!(world.graph, Edge(i, dist_dict[i][j][1]), :weight, dist_dict[i][j][2])
+                    num_out_edges +=1
+                end
             end
-            add_edge!(world.graph,i,3,:weight, 0.0)
+            j +=1
         end
     end
     # gplot(env.prm)
@@ -218,3 +139,72 @@ env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
 env.graph = generate_prm_vertices(100,env)
 d = generate_prm_edges(env, 10)
 =#
+
+function generate_prm_points_lookup_table(world)
+    discretization_width_in_x = 1.0
+    discretization_width_in_y = 1.0
+    discretization_width_in_theta = 10.0     #in degrees
+    lookup_table = Dict{String,Int}()
+
+    for i in 0:(world.length/discretization_width_in_x)-1
+        for j in 0:(world.breadth/discretization_width_in_y)-1
+            println("Doing it for this i and j at the moment " * string(i)* ","* string(j))
+            for k in 0:(360/discretization_width_in_theta)-1
+                dict_key = "xbin_"*string(i*discretization_width_in_x)*"_"*string((i+1)*discretization_width_in_x)*"_ybin_"*
+                                                        string(j*discretization_width_in_y)*"_"*string((j+1)*discretization_width_in_y)*
+                                                        "_theta_"*string(k)
+                x_point = ( (i*discretization_width_in_x) + ((i+1)*discretization_width_in_x) )/ 2
+                y_point = ( (j*discretization_width_in_y) + ((j+1)*discretization_width_in_y) )/ 2
+                theta_point = k*discretization_width_in_theta
+
+                closest_vertex = get_nearest_prm_point_in_cone(x_point,y_point,theta_point,world.graph)
+
+                # for prm_ver_index in 1:nv(world.graph)
+                #     dist_to_curr_vertex = (x_point - get_prop(world.graph,prm_ver_index,:x))^2 + (y_point - get_prop(world.graph,prm_ver_index,:y))^2
+                #     dist_from_curr_point_to_goal = dist_to_curr_vertex + get_prop(world.graph,prm_ver_index,:dist_to_goal)
+                #     if(dist_from_curr_point_to_goal < closest_dist_so_far )
+                #         closest_vertex = prm_ver_index
+                #         closest_dist_so_far = dist_from_curr_point_to_goal
+                #     end
+                # end
+                lookup_table[dict_key] = closest_vertex
+            end
+        end
+    end
+
+    return lookup_table
+end
+
+
+function Distances.evaluate(dist::myMet,a::Array{Float64},b::Array{Float64})
+           println("HG")
+           dist = b[3] + sqrt( (a[1]-b[1])^2 + (a[2]-b[2])^2 )
+end
+
+
+function get_nearest_prm_point_in_cone(x,y,theta,prm,cone_half_angle::Float64=(2*pi/9.0))
+
+    closest_prm_vertex = -1
+    closest_dist_so_far = Inf
+
+    for i in 1:nv(prm)
+        angle_between_given_point_and_prm_vertex = get_heading_angle(get_prop(prm,i,:x), get_prop(prm,i,:y), x, y)
+        difference_in_angles = abs(theta - angle_between_given_point_and_prm_vertex)
+        if(difference_in_angles <= cone_half_angle)
+            euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
+            if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far)
+                 closest_prm_vertex = i
+                 closest_dist_so_far = euclidean_distance + get_prop(prm,i,:dist_to_goal)
+            end
+        elseif ( (2*pi - difference_in_angles) <= cone_half_angle )
+            euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
+            if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far)
+                 closest_prm_vertex = i
+                 closest_dist_so_far = euclidean_distance + get_prop(prm,i,:dist_to_goal)
+            end
+        else
+            continue
+        end
+    end
+    return closest_prm_vertex
+end
