@@ -148,11 +148,6 @@ function update_human_position_pomdp_planning(human, world, time_step, rng)
 end
 #@code_warntype update_human_position_pomdp_planning(env.humans[2], env, 1.0, MersenneTwister(1234))
 
-function get_pedestrian_intermediate_trajectory_point(start_x, start_y, end_x, end_y, discrete_time)
-    tbr_x = start_x + discrete_time*(end_x - start_x)
-    tbr_y = start_y + discrete_time*(end_y - start_y)
-    return tbr_x,tbr_y
-end
 
 #************************************************************************************************
 #Simulating the cart one step forward in POMDP planning according to its new speed

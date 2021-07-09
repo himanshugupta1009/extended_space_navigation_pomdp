@@ -370,6 +370,12 @@ function get_nearest_n_pedestrians_hybrid_astar_search(world,current_belief,n,co
     return nearest_n_pedestrians
 end
 
+function get_pedestrian_intermediate_trajectory_point(start_x, start_y, end_x, end_y, discrete_time)
+    tbr_x = start_x + discrete_time*(end_x - start_x)
+    tbr_y = start_y + discrete_time*(end_y - start_y)
+    return tbr_x,tbr_y
+end
+
 # Function that updates the belief based on cart_lidar_data of old world and
 # cart_lidar_data of the new world
 function update_belief_from_old_world_and_new_world(current_belief, old_world, new_world)
