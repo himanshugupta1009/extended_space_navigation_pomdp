@@ -2,125 +2,10 @@ include("environment.jl")
 include("utils.jl")
 include("two_d_action_space_pomdp.jl")
 include("belief_tracker.jl")
+include("simulator.jl")
 using DataStructures
 
 Base.copy(s::cart_state) = cart_state(s.x, s.y,s.theta,s.v,s.L,s.goal)
-
-#Returns the updated belief over humans and number of risks encountered
-function simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(env_right_now, current_belief,
-                                                                        all_gif_environments, all_risky_scenarios, time_stamp,
-                                                                        num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                                        lidar_range, user_defined_rng)
-
-    number_risks = 0
-    env_before_humans_simulated_for_first_half_second = deepcopy(env_right_now)
-
-    #Simulate for 0 to 0.5 seconds
-    for i in 1:5
-        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
-        env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
-        env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
-                                                            env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
-        push!( all_gif_environments, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        if(get_count_number_of_risks(env_right_now) != 0)
-            number_risks += get_count_number_of_risks(env_right_now)
-            push!(all_risky_scenarios, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        end
-    end
-
-    #Update your belief after first 0.5 seconds
-    updated_belief = update_belief_from_old_world_and_new_world(current_belief,
-                                                    env_before_humans_simulated_for_first_half_second, env_right_now)
-
-    #Simulate for 0.5 to 1 second
-    env_before_humans_simulated_for_second_half_second = deepcopy(env_right_now)
-    for i in 6:10
-        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
-        if(i==10)
-            respawn_humans(env_right_now, user_defined_rng)
-        end
-        env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
-        env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
-                                                            env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
-        push!( all_gif_environments, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        if(get_count_number_of_risks(env_right_now) != 0)
-            number_risks += get_count_number_of_risks(env_right_now)
-            push!(all_risky_scenarios, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        end
-    end
-
-    #Update your belief after second 0.5 seconds
-    final_updated_belief = update_belief_from_old_world_and_new_world(updated_belief,
-                                                    env_before_humans_simulated_for_second_half_second, env_right_now)
-
-    return final_updated_belief, number_risks
-end
-
-#Returns the updated belief over humans and number of risks encountered
-function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(env_right_now, current_belief,
-                                                            all_gif_environments, all_risky_scenarios, time_stamp,
-                                                            num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                            lidar_range, user_defined_rng, steering_angle)
-
-    number_risks = 0
-
-    #Simulate for 0 to 0.5 seconds
-    env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
-    initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
-    for i in 1:5
-        extra_parameters = [env_right_now.cart.v, env_right_now.cart.L, steering_angle]
-        x,y,theta = get_intermediate_points(initial_state, 0.1, extra_parameters);
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = last(x), last(y), last(theta)
-        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
-        env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
-        env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
-                                                            env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
-
-        push!( all_gif_environments, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        if(get_count_number_of_risks(env_right_now) != 0)
-            number_risks += get_count_number_of_risks(env_right_now)
-            push!(all_risky_scenarios, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        end
-        initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
-    end
-
-    #Update your belief after first 0.5 seconds
-    updated_belief = update_belief_from_old_world_and_new_world(current_belief,
-                                                    env_before_humans_and_cart_simulated_for_first_half_second, env_right_now)
-
-    #Simulate for 0.5 to 1 second
-    env_before_humans_and_cart_simulated_for_second_half_second = deepcopy(env_right_now)
-    initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
-    for i in 6:10
-        extra_parameters = [env_right_now.cart.v, env_right_now.cart.L, steering_angle]
-        x,y,theta = get_intermediate_points(initial_state, 0.1, extra_parameters);
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = last(x), last(y), last(theta)
-        env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
-        if(i==10)
-            respawn_humans(env_right_now, user_defined_rng)
-        end
-        env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
-        env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
-                                                            env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
-
-        push!( all_gif_environments, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        if(get_count_number_of_risks(env_right_now) != 0)
-            number_risks += get_count_number_of_risks(env_right_now)
-            push!(all_risky_scenarios, (string(time_stamp)*"_"*string(i),deepcopy(env_right_now)) )
-        end
-        initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
-    end
-
-    #Update your belief after second 0.5 seconds
-    final_updated_belief = update_belief_from_old_world_and_new_world(updated_belief,
-                                                    env_before_humans_and_cart_simulated_for_second_half_second, env_right_now)
-
-    return final_updated_belief, number_risks
-end
 
 function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                             planner, filename = "output_just_2d_action_space_pomdp_planner.txt")
@@ -135,13 +20,14 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     cart_ran_into_boundary_wall_flag = false
     cart_ran_into_static_obstacle_flag = false
     cart_reached_goal_flag = true
-    cart_throughout_path = []
-    all_gif_environments = []
-    all_observed_environments = []
-    all_generated_beliefs = []
-    all_generated_beliefs_using_complete_lidar_data = []
-    all_generated_trees = []
-    all_risky_scenarios = []
+    cart_throughout_path = OrderedDict()
+    all_gif_environments = OrderedDict()
+    all_observed_environments = OrderedDict()
+    all_generated_beliefs = OrderedDict()
+    all_generated_beliefs_using_complete_lidar_data = OrderedDict()
+    all_generated_trees = OrderedDict()
+    all_risky_scenarios = OrderedDict()
+    all_actions = OrderedDict()
     MAX_TIME_LIMIT = 300
 
     #Sense humans near cart before moving
@@ -156,11 +42,12 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
     #initial_belief = update_belief([],env_right_now.goals,[],env_right_now.complete_cart_lidar_data)
 
-    push!(all_gif_environments, ("-1",deepcopy(env_right_now)))
-    push!(all_observed_environments,deepcopy(env_right_now))
-    push!(all_generated_beliefs_using_complete_lidar_data, initial_belief_over_complete_cart_lidar_data)
-    push!(all_generated_beliefs, initial_belief)
-    push!(all_generated_trees, nothing)
+    dict_key = "t="*string(time_taken_by_cart)
+    all_gif_environments[dict_key] = deepcopy(env_right_now)
+    all_observed_environments[dict_key] = deepcopy(env_right_now)
+    all_generated_beliefs_using_complete_lidar_data[dict_key] = initial_belief_over_complete_cart_lidar_data
+    all_generated_beliefs[dict_key] = initial_belief
+    cart_throughout_path[dict_key] = copy(env_right_now.cart)
 
     #Simulate for t=0 to t=1
     io = open(filename,"w")
@@ -176,11 +63,11 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
     number_risks += risks_in_simulation
     time_taken_by_cart += 1
-    push!(all_observed_environments,deepcopy(env_right_now))
-    push!(all_generated_beliefs_using_complete_lidar_data, current_belief_over_complete_cart_lidar_data)
-    push!(all_generated_beliefs, current_belief)
-    push!(all_generated_trees, nothing)
-
+    dict_key = "t="*string(time_taken_by_cart)
+    all_observed_environments[dict_key] = deepcopy(env_right_now)
+    all_generated_beliefs_using_complete_lidar_data[dict_key] = current_belief_over_complete_cart_lidar_data
+    all_generated_beliefs[dict_key] = current_belief
+    cart_throughout_path[dict_key] = copy(env_right_now.cart)
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
 
@@ -201,12 +88,13 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
             b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
             a, info = action_info(planner, b)
             write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string((a[1]*180/pi, a[2])) )
+            dict_key = "t="*string(time_taken_by_cart)
+            all_generated_trees[dict_key] = deepcopy(info)
+            all_actions[dict_key] = (a[1]*180/pi, a[2])
 
             if(env_right_now.cart.v!=0 && a[2] == -10.0)
                 number_of_sudden_stops += 1
             end
-
-            push!(all_generated_trees, deepcopy(info))
             env_right_now.cart.v = clamp(env_right_now.cart.v + a[2],0,m.max_cart_speed)
 
             if(env_right_now.cart.v != 0.0)
@@ -233,14 +121,17 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 number_risks += risks_in_simulation
             end
 
-            push!(all_observed_environments,deepcopy(env_right_now))
-            push!(all_generated_beliefs_using_complete_lidar_data, current_belief_over_complete_cart_lidar_data)
-            push!(all_generated_beliefs, current_belief)
+            time_taken_by_cart += 1
+            dict_key = "t="*string(time_taken_by_cart)
+            all_observed_environments[dict_key] = deepcopy(env_right_now)
+            all_generated_beliefs_using_complete_lidar_data[dict_key] = current_belief_over_complete_cart_lidar_data
+            all_generated_beliefs[dict_key] = current_belief
+            cart_throughout_path[dict_key] = copy(env_right_now.cart)
 
             write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
             write_and_print( io, "************************************************************************" )
-            push!(cart_throughout_path,(copy(env_right_now.cart)))
-            time_taken_by_cart += 1
+
+
             if(time_taken_by_cart>MAX_TIME_LIMIT)
                 cart_reached_goal_flag = false
                 break
@@ -278,8 +169,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     close(io)
 
     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
-                all_generated_trees,all_risky_scenarios, number_risks, number_of_sudden_stops, time_taken_by_cart,
-                cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
+                all_generated_trees,all_risky_scenarios,all_actions,cart_throughout_path, number_risks, number_of_sudden_stops,
+                time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
 end
 
 function get_available_actions(b)
@@ -342,14 +233,14 @@ if(run_simulation_flag)
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
 
     just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
-            just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios,
-            just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
+            just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
+            just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
             just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
             just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(111),
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
-    anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
-        display_env(just_2D_pomdp_all_observed_environments[i]);
+    anim = @animate for k ∈ keys(just_2D_pomdp_all_observed_environments)
+        display_env(just_2D_pomdp_all_observed_environments[k]);
         #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
     end
 
@@ -357,8 +248,8 @@ if(run_simulation_flag)
 end
 
 #=
-anim = @animate for i ∈ 1:length(just_2D_pomdp_all_gif_environments)
-    display_env(just_2D_pomdp_all_gif_environments[i][2]);
+anim = @animate for k ∈ keys(just_2D_pomdp_all_gif_environments)
+    display_env(just_2D_pomdp_all_gif_environments[k]);
     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
 end
 gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 20)
