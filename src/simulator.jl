@@ -4,7 +4,7 @@
 function simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(env_right_now, current_belief,
                                                                         all_gif_environments, all_risky_scenarios, time_stamp,
                                                                         num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                                        lidar_range, user_defined_rng)
+                                                                        lidar_range, closest_ped_dist_threshold, user_defined_rng)
 
     number_risks = 0
     env_before_humans_simulated_for_first_half_second = deepcopy(env_right_now)
@@ -15,7 +15,7 @@ function simulate_pedestrians_and_generate_gif_environments_when_cart_stationary
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
         dict_key = "t="*string(time_stamp)*"_"*string(i)
         all_gif_environments[dict_key] =  deepcopy(env_right_now)
         if(get_count_number_of_risks(env_right_now) != 0)
@@ -38,7 +38,7 @@ function simulate_pedestrians_and_generate_gif_environments_when_cart_stationary
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
         dict_key = "t="*string(time_stamp)*"_"*string(i)
         all_gif_environments[dict_key] =  deepcopy(env_right_now)
         if(get_count_number_of_risks(env_right_now) != 0)
@@ -58,7 +58,7 @@ end
 function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(env_right_now, current_belief,
                                                             all_gif_environments, all_risky_scenarios, time_stamp,
                                                             num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                            lidar_range, user_defined_rng, steering_angle)
+                                                            lidar_range, closest_ped_dist_threshold, user_defined_rng, steering_angle)
 
     number_risks = 0
 
@@ -73,7 +73,7 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
 
         dict_key = "t="*string(time_stamp)*"_"*string(i)
         all_gif_environments[dict_key] =  deepcopy(env_right_now)
@@ -102,7 +102,7 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
 
         dict_key = "t="*string(time_stamp)*"_"*string(i)
         all_gif_environments[dict_key] =  deepcopy(env_right_now)
@@ -126,7 +126,7 @@ end
 function hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(env_right_now, current_belief,
                                                                         all_gif_environments, all_risky_scenarios, time_stamp,
                                                                         num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                                        lidar_range, user_defined_rng)
+                                                                        lidar_range, closest_ped_dist_threshold, user_defined_rng)
 
     number_risks = 0
     env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
@@ -137,7 +137,7 @@ function hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environment
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
         dict_key = "t="*string(time_stamp)*"_"*string(i)
         all_gif_environments[dict_key] =  deepcopy(env_right_now)
         if(get_count_number_of_risks(env_right_now) != 0)
@@ -160,7 +160,7 @@ function hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environment
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
         dict_key = "t="*string(time_stamp)*"_"*string(i)
         all_gif_environments[dict_key] =  deepcopy(env_right_now)
         if(get_count_number_of_risks(env_right_now) != 0)
@@ -180,7 +180,7 @@ end
 function hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(env_right_now, current_belief,
                                                             all_gif_environments, all_risky_scenarios, time_stamp,
                                                             num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                            lidar_range, user_defined_rng)
+                                                            lidar_range, closest_ped_dist_threshold, user_defined_rng)
 
     #First simulate only the cart and get its path
     goal_reached_in_this_time_step_flag = false
@@ -216,7 +216,7 @@ function hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_en
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
         if( floor( (0.1*i) / (1/env_right_now.cart.v) ) > curr_hybrid_astar_path_index)
             curr_hybrid_astar_path_index += 1
             env_right_now.cart_hybrid_astar_path = env_right_now.cart_hybrid_astar_path[2 : end]
@@ -247,7 +247,7 @@ function hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_en
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                             env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                            cone_half_angle)
+                                                            closest_ped_dist_threshold, cone_half_angle)
         if( floor( (0.1*i) / (1/env_right_now.cart.v) ) > curr_hybrid_astar_path_index)
             curr_hybrid_astar_path_index += 1
             env_right_now.cart_hybrid_astar_path = env_right_now.cart_hybrid_astar_path[2 : end]

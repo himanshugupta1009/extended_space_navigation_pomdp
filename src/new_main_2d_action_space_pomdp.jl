@@ -35,7 +35,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
     env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
                                                         env_right_now.complete_cart_lidar_data, num_humans_to_care_about_while_pomdp_planning,
-                                                        cone_half_angle)
+                                                        m.pedestrian_distance_threshold, cone_half_angle)
 
     initial_belief_over_complete_cart_lidar_data = update_belief([],env_right_now.goals,[],env_right_now.complete_cart_lidar_data)
     initial_belief = get_belief_for_selected_humans_from_belief_over_complete_lidar_data(initial_belief_over_complete_cart_lidar_data,
@@ -57,7 +57,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     #Update human positions in environment for two time steps and cart's belief accordingly
     current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(env_right_now,
                                                         initial_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios, time_taken_by_cart,
-                                                        num_humans_to_care_about_while_pomdp_planning,cone_half_angle, lidar_range,
+                                                        num_humans_to_care_about_while_pomdp_planning,cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
                                                         MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) )
     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
@@ -103,8 +103,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
                                                                     env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments,
                                                                     all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
-                                                                    cone_half_angle, lidar_range,MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),
-                                                                    steering_angle)
+                                                                    cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
+                                                                    MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), steering_angle)
                 current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                     env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
                 number_risks += risks_in_simulation
@@ -113,7 +113,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                                     env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments,
                                                                     all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
-                                                                    cone_half_angle, lidar_range,MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) )
+                                                                    cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
+                                                                    MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) )
                 current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                     env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
 

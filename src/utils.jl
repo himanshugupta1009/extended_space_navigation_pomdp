@@ -307,21 +307,21 @@ function write_and_print(io::IOStream, string_to_be_written_and_printed::String)
     println(string_to_be_written_and_printed)
 end
 
-function get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(cart, cart_lidar_data, n, cone_half_angle::Float64=pi/3.0)
+function get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(cart, cart_lidar_data, n, closest_ped_dist_threshold,
+                                                                                                cone_half_angle::Float64=pi/3.0)
     nearest_n_pedestrians = Array{human_state,1}()
     priority_queue_nearest_n_pedestrians = PriorityQueue{human_state,Float64}(Base.Order.Forward)
     for i in 1:length(cart_lidar_data)
         human = cart_lidar_data[i]
         angle_between_cart_and_human = get_heading_angle(human.x, human.y, cart.x, cart.y)
         difference_in_angles = abs(cart.theta - angle_between_cart_and_human)
+        euclidean_distance = sqrt( (cart.x - human.x)^2 + (cart.y - human.y)^2 )
         if(difference_in_angles <= cone_half_angle)
-            euclidean_distance = sqrt( (cart.x - human.x)^2 + (cart.y - human.y)^2 )
             priority_queue_nearest_n_pedestrians[human] = euclidean_distance
         elseif ( (2*pi - difference_in_angles) <= cone_half_angle )
-            euclidean_distance = sqrt( (cart.x - human.x)^2 + (cart.y - human.y)^2 )
             priority_queue_nearest_n_pedestrians[human] = euclidean_distance
-        else
-            continue
+        elseif (euclidean_distance<=closest_ped_dist_threshold)
+            priority_queue_nearest_n_pedestrians[human] = euclidean_distance
         end
     end
 
@@ -342,22 +342,20 @@ function get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(
     return nearest_n_pedestrians
 end
 
-function get_nearest_n_pedestrians_hybrid_astar_search(world,current_belief,n,cone_half_angle::Float64=pi/3.0)
+function get_nearest_n_pedestrians_hybrid_astar_search(world,current_belief,n,closest_ped_dist_threshold,cone_half_angle::Float64=pi/3.0)
     nearest_n_pedestrians = Array{Tuple{human_state,human_probability_over_goals},1}()
     priority_queue_nearest_n_pedestrians = PriorityQueue{Tuple{human_state,human_probability_over_goals},Float64}(Base.Order.Forward)
-    cone_half_angle = pi/3.0
     for i in 1:length(world.cart_lidar_data)
         human = world.cart_lidar_data[i]
         angle_between_cart_and_human = get_heading_angle(human.x, human.y, world.cart.x, world.cart.y)
         difference_in_angles = abs(world.cart.theta - angle_between_cart_and_human)
+        euclidean_distance = sqrt( (world.cart.x - human.x)^2 + (world.cart.y - human.y)^2 )
         if(difference_in_angles <= cone_half_angle)
-            euclidean_distance = sqrt( (world.cart.x - human.x)^2 + (world.cart.y - human.y)^2 )
             priority_queue_nearest_n_pedestrians[(human,current_belief[i])] = euclidean_distance
         elseif ( (2*pi - difference_in_angles) <= cone_half_angle )
-            euclidean_distance = sqrt( (world.cart.x - human.x)^2 + (world.cart.y - human.y)^2 )
             priority_queue_nearest_n_pedestrians[(human,current_belief[i])] = euclidean_distance
-        else
-            continue
+        elseif (euclidean_distance<=closest_ped_dist_threshold)
+            priority_queue_nearest_n_pedestrians[(human,current_belief[i])] = euclidean_distance
         end
     end
     for i in 1:n
@@ -385,7 +383,7 @@ function update_belief_from_old_world_and_new_world(current_belief, old_world, n
 end
 
 function update_current_belief_by_creating_temp_world(old_world, new_world, old_belief, lidar_range,
-                                                        num_humans_to_care_about, cone_half_angle)
+                                                        num_humans_to_care_about, cone_half_angle, closest_ped_dist_threshold)
 
     #Create the temp world at t = 0.5 second
     temp_world = deepcopy(old_world)
@@ -396,7 +394,7 @@ function update_current_belief_by_creating_temp_world(old_world, new_world, old_
 
     complete_new_lidar_data = get_lidar_data(temp_world,lidar_range)
     new_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(temp_world.cart, complete_new_lidar_data,
-                                                                                num_humans_to_care_about, cone_half_angle )
+                                                                                num_humans_to_care_about, closest_ped_dist_threshold, cone_half_angle )
     #Update belief
     temp_world.complete_cart_lidar_data = complete_new_lidar_data
     temp_world.cart_lidar_data = new_lidar_data
