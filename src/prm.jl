@@ -11,15 +11,15 @@ function get_distance_between_two_prm_vertices(prm, first_vertex_index, second_v
     return sqrt(euclidean_distance)
 end
 
-function add_vertex_to_prm_graph(prm_graph, world)
+function add_vertex_to_prm_graph(prm_graph, rand_rng, world)
 
     prm_vertex_found_flag = false
     obstacle_padding_threshold_distance = 2.0
     min_distance_between_vertices_threshold = 2
 
     while(prm_vertex_found_flag!=true)
-        sampled_x_point = rand()*world.length
-        sampled_y_point = rand()*world.breadth
+        sampled_x_point = rand(rand_rng)*world.length
+        sampled_y_point = rand(rand_rng)*world.breadth
         collision_flag = false
 
         for obstacle in world.obstacles
@@ -50,7 +50,7 @@ function add_vertex_to_prm_graph(prm_graph, world)
     end
 end
 
-function generate_prm_vertices(max_num_vertices, world)
+function generate_prm_vertices(max_num_vertices, rand_rng, world)
 
     prm_graph = MetaGraph()
     set_prop!(prm_graph, :description, "This is the PRM for global planning")
@@ -62,7 +62,7 @@ function generate_prm_vertices(max_num_vertices, world)
 
     while(num_vertices_so_far<max_num_vertices)
         #@show("Vertices so far : ", num_vertices_so_far )
-        add_vertex_to_prm_graph(prm_graph, world)
+        add_vertex_to_prm_graph(prm_graph, rand_rng, world)
         num_vertices_so_far += 1
     end
     return prm_graph
@@ -231,7 +231,7 @@ end
 
 #=
 env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
-graph = generate_prm_vertices(1000,env)
+graph = generate_prm_vertices(1000,MersenneTwister(15),env)
 d = generate_prm_edges(env, graph, 10)
 display_env(env)
 display_env(env,nothing,nothing,graph)
