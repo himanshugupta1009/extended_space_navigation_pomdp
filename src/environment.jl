@@ -1,5 +1,8 @@
 using Plots
 using Random
+using MetaGraphs
+using LightGraphs
+using Revise
 
 #Global Variables
 plot_size = 1000; #number of pixels
@@ -151,7 +154,9 @@ function generate_environment_large_circular_obstacles(number_of_humans,user_def
 
     o1 = obstacle_location(50.0,75.0,15.0)
     o2 = obstacle_location(50.0,25.0,15.0)
-    all_obstacle_list = [o1,o2]
+    o3 = obstacle_location(30.0,50.0,10.0)
+    o4 = obstacle_location(70.0,50.0,10.0)
+    all_obstacle_list = [o1,o2,o3,o4]
 
     golfcart = cart_state(1.0,25.0,0.0,0.0,1.0,cart_goal)
     initial_cart_lidar_data = Array{human_state,1}()
@@ -176,8 +181,49 @@ function generate_environment_large_circular_obstacles(number_of_humans,user_def
     return world
 end
 
+function generate_environment_L_shaped_corridor(number_of_humans,user_defined_rng)
+
+    world_length = 100.0
+    world_breadth = 100.0
+    g1 = location(0.0,0.0)
+    g2 = location(0.0,world_breadth)
+    g3 = location(world_length,world_breadth)
+    g4 = location(world_length,0.0)
+    cart_goal = location(world_length,75.0)
+    all_goals_list = [g1,g2,g3,g4]
+
+    o1 = obstacle_location(50.0,50.0,20.0)
+    o2 = obstacle_location(50.0,20.0,20.0)
+    o3 = obstacle_location(80.0,50.0,20.0)
+    o4 = obstacle_location(80.0,20.0,20.0)
+    all_obstacle_list = [o1,o2,o3,o4]
+
+    golfcart = cart_state(1.0,25.0,0.0,0.0,1.0,cart_goal)
+    initial_cart_lidar_data = Array{human_state,1}()
+    initial_complete_cart_lidar_data = Array{human_state,1}()
+
+    max_num_humans = number_of_humans
+    human_state_start_list = Array{human_state,1}()
+    for i in 1:max_num_humans
+        human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        while(is_within_range_check_with_points(human.x,human.y, golfcart.x, golfcart.y, 5.0))
+            human =  human_state(floor(world_length*rand(user_defined_rng)), floor(world_breadth*rand(user_defined_rng)) , 1.0
+                                                    , all_goals_list[Int(ceil(rand(user_defined_rng)*4))] , float(i))
+        end
+        push!(human_state_start_list,human)
+    end
+
+    world = experiment_environment(world_length,world_breadth,max_num_humans,number_of_humans,
+                    all_goals_list,human_state_start_list,all_obstacle_list,golfcart,initial_cart_lidar_data,
+                    initial_complete_cart_lidar_data,Float64[],location(golfcart.x, golfcart.y))
+
+    return world
+end
+
+
 #Function to display the environment
-function display_env(env::experiment_environment, gif_env_num=nothing)
+function display_env(env::experiment_environment, time_step=nothing, gif_env_num=nothing, graph = nothing)
 
     #Plot Boundaries
     p = plot([0.0],[0.0],legend=false,grid=false)
@@ -283,8 +329,40 @@ function display_env(env::experiment_environment, gif_env_num=nothing)
         end
     end
 
-    annotate!(1.0, 25.0, text("S", :purple, :right, 20))
+    if(graph!=nothing)
+        #Plot the PRM vertices
+        for i in 1:nv(graph)
+            if(i!=3)
+                scatter!([get_prop(graph,i,:x)], [get_prop(graph,i,:y)],color="Grey",shape=:circle,msize=0.3*plot_size/env.length)
+            end
+        end
+
+        #Format of vertex_tuple -> (current_vertex, parent_vertex)
+        vertex_tuple = nothing
+        if(vertex_tuple != nothing)
+            for n in neighbors(graph, vertex_tuple[1])
+                if( n!= vertex_tuple[2] && n!=3 )
+                    plot!( [get_prop(graph,vertex_tuple[1],:x),get_prop(graph,n,:x)], [get_prop(graph,vertex_tuple[1],:y),
+                                                                        get_prop(graph,n,:y)], color="LightGrey")
+                end
+            end
+        else
+            #Plot all the PRM edges
+            all_edges = collect(edges(graph))
+            for edge in all_edges
+                if( get_prop(graph,edge.dst,:x) != -100.0 )
+                    plot!( [get_prop(graph,edge.src,:x),get_prop(graph,edge.dst,:x) ], [get_prop(graph,edge.src,:y),get_prop(graph,edge.dst,:y)], color="LightGrey")
+                end
+                # scatter!([get_prop(env.prm,i,:x)], [get_prop(env.prm,i,:y)],color="LightGrey",shape=:circle,msize=0.3*plot_size/env.length)
+            end
+        end
+    end
+
+    annotate!(env.cart_start_location.x, env.cart_start_location.y, text("S", :purple, :right, 20))
     annotate!(env.cart.goal.x, env.cart.goal.y, text("G", :purple, :right, 20))
+    if(time_step!=nothing)
+        annotate!(env.length/2, env.breadth, text(time_step, :blue, :right, 20))
+    end
     plot!(size=(plot_size,plot_size))
     display(p)
 end

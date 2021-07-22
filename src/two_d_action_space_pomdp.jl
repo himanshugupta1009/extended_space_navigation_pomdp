@@ -31,6 +31,7 @@ mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_acti
     goal_reward::Float64
     max_cart_speed::Float64
     world::experiment_environment
+    lookup_table::Array{Tuple{Int64,Float64,Float64,Float64},3}
 end
 
 #Function to check terminal state
@@ -162,17 +163,18 @@ function update_cart_position_pomdp_planning_2D_action_space(current_cart, delta
         cart_path = Tuple{Float64,Float64,Float64}[]
         push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
         arc_length = new_cart_speed
-        steering_angle = atan((current_cart.L*delta_angle)/arc_length)
+        # steering_angle = atan((current_cart.L*delta_angle)/arc_length)
+        final_orientation_angle = wrap_between_0_and_2Pi(current_theta+delta_angle)
         for i in (1:num_time_intervals)
-            if(steering_angle == 0.0)
+            if(delta_angle == 0.0)
                 new_theta = current_theta
                 new_x = current_x + arc_length*cos(current_theta)*(1/num_time_intervals)
                 new_y = current_y + arc_length*sin(current_theta)*(1/num_time_intervals)
             else
-                new_theta = current_theta + (arc_length * tan(steering_angle) * (1/num_time_intervals) / current_cart.L)
+                new_theta = current_theta + (delta_angle * (1/num_time_intervals))
                 new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + ((current_cart.L / tan(steering_angle)) * (sin(new_theta) - sin(current_theta)))
-                new_y = current_y + ((current_cart.L / tan(steering_angle)) * (cos(current_theta) - cos(new_theta)))
+                new_x = current_x + arc_length*cos(final_orientation_angle)*(1/num_time_intervals)
+                new_y = current_y + arc_length*sin(final_orientation_angle)*(1/num_time_intervals)
             end
             push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
             current_x, current_y,current_theta = new_x,new_y,new_theta
@@ -383,23 +385,19 @@ end
 function is_collision_state_pomdp_planning_2D_action_space(s,m)
     if((s.cart.x>m.world.length) || (s.cart.y>m.world.breadth) || (s.cart.x<0.0) || (s.cart.y<0.0))
         return true
-    elseif(s.cart.v == 0.0)
-        return false
-    else
-        if(s.cart.v!=0.0)
-            for human in s.pedestrians
-                if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold))
-                    return true
-                end
-            end
-        end
-        for obstacle in m.world.obstacles
-            if(is_within_range(location(s.cart.x,s.cart.y),location(obstacle.x,obstacle.y),obstacle.r + m.obstacle_distance_threshold))
+    elseif(s.cart.v != 0.0)
+        for human in s.pedestrians
+            if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold))
                 return true
             end
         end
-        return false
     end
+    for obstacle in m.world.obstacles
+        if(is_within_range(location(s.cart.x,s.cart.y),location(obstacle.x,obstacle.y),obstacle.r + m.obstacle_distance_threshold))
+            return true
+        end
+    end
+    return false
 end
 
 function time_to_goal_pomdp_planning_2D_action_space(s,max_cart_speed)
@@ -410,7 +408,6 @@ end
 
 function calculate_upper_bound_value_pomdp_planning_2D_action_space(m, b)
 
-    #@show lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=100, final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),m , b)
     value_sum = 0.0
     for (s, w) in weighted_particles(b)
         if(s.cart.x == -100.0 && s.cart.y == -100.0)
@@ -430,7 +427,7 @@ end
 
 #************************************************************************************************
 #Lower bound policy function for DESPOT
-function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
+function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
     #Implement a reactive controller for your lower bound
     speed_change_to_be_returned = 1.0
     delta_angle = 0.0
@@ -444,7 +441,12 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(b)
             continue
         else
             if(first_execution_flag)
-                required_orientation = get_heading_angle( s.cart.goal.x, s.cart.goal.y, s.cart.x, s.cart.y)
+                x_point =  floor(Int64,s.cart.x/ 1.0)+1
+                y_point =  floor(Int64,s.cart.y/ 1.0)+1
+                theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
+                # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
+                nearest_prm_point = m.lookup_table[x_point,y_point,theta_point]
+                required_orientation = get_heading_angle( nearest_prm_point[2], nearest_prm_point[3], s.cart.x, s.cart.y)
                 delta_angle = required_orientation - s.cart.theta
                 abs_delta_angle = abs(delta_angle)
                 if(abs_delta_angle<=pi)
@@ -520,38 +522,38 @@ end
 #Functions for debugging lb>ub error
 function debug_is_collision_state_pomdp_planning_2D_action_space(s,m)
 
-    if((s.cart.x>100.0) || (s.cart.y>100.0) || (s.cart.x<0.0) || (s.cart.y<0.0))
-        println("Stepped Outside")
+    if((s.cart.x>m.world.length) || (s.cart.y>m.world.breadth) || (s.cart.x<0.0) || (s.cart.y<0.0))
+        println("Stepped Outside the boundary")
         return true
-    else
+    elseif(s.cart.v != 0.0)
         for human in s.pedestrians
             if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold))
                 println("Collision with human ", human)
                 return true
             end
         end
-        for obstacle in m.world.obstacles
-            if(is_within_range(location(s.cart.x,s.cart.y),location(obstacle.x,obstacle.y),obstacle.r + m.obstacle_distance_threshold))
-                println("Collision with obstacle ", obstacle)
-                return true
-            end
-        end
-        return false
     end
+    for obstacle in m.world.obstacles
+        if(is_within_range(location(s.cart.x,s.cart.y),location(obstacle.x,obstacle.y),obstacle.r + m.obstacle_distance_threshold))
+            println("Collision with obstacle ", obstacle)
+            return true
+        end
+    end
+    return false
 end
 
 function debug_golfcart_upper_bound_2D_action_space(m,b)
 
-    # lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=100),m , b)
-    lower = lbound(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space), max_depth=100, final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),m , b)
+    lbound(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(m, b)),max_depth=100),m,b)
     #@show(lower)
+
     value_sum = 0.0
     for (s, w) in weighted_particles(b)
         if (s.cart.x == -100.0 && s.cart.y == -100.0)
             value_sum += 0.0
-        elseif (is_within_range(location(s.cart.x,s.cart.y), s.cart.goal, m.cart_goal_reached_distance_threshold))
+        elseif(is_within_range_check_with_points(s.cart.x,s.cart.y, s.cart.goal.x, s.cart.goal.y, m.cart_goal_reached_distance_threshold))
             value_sum += w*m.goal_reward
-        elseif (is_collision_state_pomdp_planning_2D_action_space(s,m))
+        elseif(is_collision_state_pomdp_planning_2D_action_space(s,m))
             value_sum += w*m.pedestrian_collision_penalty
         else
             value_sum += w*((discount(m)^time_to_goal_pomdp_planning_2D_action_space(s,m.max_cart_speed))*m.goal_reward)

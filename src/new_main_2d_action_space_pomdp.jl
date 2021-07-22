@@ -1,4 +1,5 @@
 include("environment.jl")
+include("prm.jl")
 include("utils.jl")
 include("two_d_action_space_pomdp.jl")
 include("belief_tracker.jl")
@@ -99,12 +100,12 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
 
             if(env_right_now.cart.v != 0.0)
                 #That means the cart is not stationary and we now have to simulate both cart and the pedestrians.
-                steering_angle = atan((env_right_now.cart.L*a[1])/env_right_now.cart.v)
+                # steering_angle = atan((env_right_now.cart.L*a[1])/env_right_now.cart.v)
                 current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
                                                                     env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments,
                                                                     all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
                                                                     cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                                    MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), steering_angle)
+                                                                    MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), a[1])
                 current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                     env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
                 number_risks += risks_in_simulation
@@ -174,9 +175,15 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
 end
 
-function get_available_actions(b)
+#function get_available_actions(m::POMDP_Planner_2D_action_space,pomdp_state)
+function get_available_actions_non_holonomic(m::POMDP_Planner_2D_action_space,b)
     pomdp_state = first(particles(b))
-    required_orientation = get_heading_angle( pomdp_state.cart.goal.x, pomdp_state.cart.goal.y, pomdp_state.cart.x, pomdp_state.cart.y)
+    x_point =  floor(Int64,pomdp_state.cart.x/ 1.0)+1
+    y_point =  floor(Int64,pomdp_state.cart.y/ 1.0)+1
+    theta_point = clamp(floor(Int64,pomdp_state.cart.theta/(pi/18))+1,1,36)
+    # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
+    nearest_prm_point = m.lookup_table[x_point,y_point,theta_point]
+    required_orientation = get_heading_angle( nearest_prm_point[2], nearest_prm_point[3], pomdp_state.cart.x, pomdp_state.cart.y)
     delta_angle = required_orientation - pomdp_state.cart.theta
     abs_delta_angle = abs(delta_angle)
     if(abs_delta_angle<=pi)
@@ -196,22 +203,52 @@ function get_available_actions(b)
         end
     else
         if(delta_angle==pi/4 || delta_angle==-pi/4)
-            return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            # return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            #Without immediate stop action
+            return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0)]
         else
-            return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            # return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            #Without immediate stop action
+            return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0)]
         end
-        # return [(delta_angle, 1.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
-        # return [(delta_angle, 1.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
     end
 end
 #@code_warntype get_available_actions(POMDP_state_2D_action_space(env.cart,env.humans))
 
+function get_available_actions_holonomic(m::POMDP_Planner_2D_action_space,b)
+    pomdp_state = first(particles(b))
+    x_point =  floor(Int64,pomdp_state.cart.x/ 1.0)+1
+    y_point =  floor(Int64,pomdp_state.cart.y/ 1.0)+1
+    # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
+    nearest_prm_point = m.lookup_table[x_point,y_point]
+    required_orientation = get_heading_angle( nearest_prm_point[2], nearest_prm_point[3], pomdp_state.cart.x, pomdp_state.cart.y)
+    delta_angle = required_orientation - pomdp_state.cart.theta
+    if(pomdp_state.cart.v == 0.0)
+        return [(delta_angle, 1.0),(-pi/4,1.0),(-pi/6,1.0),(-pi/12,1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,1.0),(pi/4,1.0)]
+    else
+        if(delta_angle==pi/4 || delta_angle==-pi/4)
+            # return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            #Without immediate stop action
+            return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0)]
+        else
+            # return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            #Without immediate stop action
+            return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0)]
+        end
+    end
+end
+
 run_simulation_flag = false
 if(run_simulation_flag)
     gr()
-    env = generate_environment_no_obstacles(300, MersenneTwister(523))
+    # env = generate_environment_no_obstacles(300, MersenneTwister(523))
     # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
-    # env = generate_environment_large_circular_obstacles(300, MersenneTwister(15))
+    env = generate_environment_large_circular_obstacles(300, MersenneTwister(25))
+    if(lt == nothing)
+        graph = generate_prm_vertices(1000,env)
+        d = generate_prm_edges(env, graph, 10)
+        lt = generate_prm_points_lookup_table_non_holonomic(env,graph)
+    end
     env_right_now = deepcopy(env)
 
     #Create POMDP for env_right_now
@@ -219,14 +256,13 @@ if(run_simulation_flag)
     # discount_factor::Float64; pedestrian_distance_threshold::Float64; pedestrian_collision_penalty::Float64;
     # obstacle_distance_threshold::Float64; obstacle_collision_penalty::Float64; goal_reward_distance_threshold::Float64;
     # cart_goal_reached_distance_threshold::Float64; goal_reward::Float64; max_cart_speed::Float64; world::experiment_environment
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now,lt)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-    #actions(::POMDP_Planner_2D_action_space) = [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,0.0),(pi/6,0.0),(pi/4,0.0)]
-    actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions(b)
+    actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions_non_holonomic(m,b)
 
-    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100),
-                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
+    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
+                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
@@ -241,7 +277,7 @@ if(run_simulation_flag)
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
     anim = @animate for k ∈ keys(just_2D_pomdp_all_observed_environments)
-        display_env(just_2D_pomdp_all_observed_environments[k]);
+        display_env(just_2D_pomdp_all_observed_environments[k], k);
         #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
     end
 
@@ -250,7 +286,7 @@ end
 
 #=
 anim = @animate for k ∈ keys(just_2D_pomdp_all_gif_environments)
-    display_env(just_2D_pomdp_all_gif_environments[k]);
+    display_env(just_2D_pomdp_all_gif_environments[k],k);
     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
 end
 gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 20)

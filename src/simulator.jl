@@ -58,17 +58,18 @@ end
 function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(env_right_now, current_belief,
                                                             all_gif_environments, all_risky_scenarios, time_stamp,
                                                             num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                            lidar_range, closest_ped_dist_threshold, user_defined_rng, steering_angle)
+                                                            lidar_range, closest_ped_dist_threshold, user_defined_rng, delta_angle)
 
     number_risks = 0
 
     #Simulate for 0 to 0.5 seconds
     env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
-    initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
+    final_cart_theta = wrap_between_0_and_2Pi(env_right_now.cart.theta+delta_angle)
     for i in 1:5
-        extra_parameters = [env_right_now.cart.v, env_right_now.cart.L, steering_angle]
-        x,y,theta = get_intermediate_points(initial_state, 0.1, extra_parameters);
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = last(x), last(y), last(theta)
+        new_theta = wrap_between_0_and_2Pi(env_right_now.cart.theta + (delta_angle * (1/10)))
+        new_x = env_right_now.cart.x + env_right_now.cart.v*cos(final_cart_theta)*(1/10)
+        new_y = env_right_now.cart.y + env_right_now.cart.v*sin(final_cart_theta)*(1/10)
+        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = new_x, new_y, new_theta
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
@@ -90,11 +91,11 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
 
     #Simulate for 0.5 to 1 second
     env_before_humans_and_cart_simulated_for_second_half_second = deepcopy(env_right_now)
-    initial_state = [env_right_now.cart.x,env_right_now.cart.y,env_right_now.cart.theta]
     for i in 6:10
-        extra_parameters = [env_right_now.cart.v, env_right_now.cart.L, steering_angle]
-        x,y,theta = get_intermediate_points(initial_state, 0.1, extra_parameters);
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = last(x), last(y), last(theta)
+        new_theta = wrap_between_0_and_2Pi(env_right_now.cart.theta + (delta_angle * (1/10)))
+        new_x = env_right_now.cart.x + env_right_now.cart.v*cos(final_cart_theta)*(1/10)
+        new_y = env_right_now.cart.y + env_right_now.cart.v*sin(final_cart_theta)*(1/10)
+        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = new_x, new_y, new_theta
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
         if(i==10)
             respawn_humans(env_right_now, user_defined_rng)

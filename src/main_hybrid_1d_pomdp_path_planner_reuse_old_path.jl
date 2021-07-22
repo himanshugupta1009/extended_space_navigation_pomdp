@@ -48,6 +48,11 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     all_generated_beliefs_using_complete_lidar_data[dict_key] = initial_belief_over_complete_cart_lidar_data
     all_generated_beliefs[dict_key] = initial_belief
     cart_throughout_path[dict_key] = copy(env_right_now.cart)
+    #Try to generate the Hybrid A* path
+    humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,initial_belief,
+                                                        num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
+    env_right_now.cart_hybrid_astar_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
+        env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,10.0);
 
     #Simulate for t=0 to t=1
     io = open(filename,"w")
@@ -209,16 +214,16 @@ end
 run_simulation_flag = false
 if(run_simulation_flag)
     gr()
-    env = generate_environment_no_obstacles(300,MersenneTwister(523))
+    # env = generate_environment_no_obstacles(300,MersenneTwister(523))
     # env = generate_environment_small_circular_obstacles(300,MersenneTwister(15))
-    # env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
+    env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
     env_right_now = deepcopy(env)
 
     #Create POMDP for hybrid_a_star + POMDP speed planners at every time step
     golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,1.0,-100.0,1.0,1.0,1000.0,2.0,env_right_now,1)
     discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-    actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
+    actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0]
     #actions(::POMDP_Planner_1D_action_space) = Float64[-0.5, 0.0, 0.5, -10.0]
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
@@ -234,7 +239,7 @@ if(run_simulation_flag)
                                                                             golfcart_1D_action_space_pomdp, planner)
 
     anim = @animate for k ∈ keys(astar_1D_all_observed_environments)
-        display_env(astar_1D_all_observed_environments[k]);
+        display_env(astar_1D_all_observed_environments[k],k);
         #savefig("./plots_reusing_hybrid_astar_path_1d_action_space_speed_pomdp_planner/plot_"*string(i)*".png")
     end
     gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 2)
@@ -243,7 +248,7 @@ end
 
 #=
 anim = @animate for k ∈ keys(astar_1D_all_gif_environments)
-    display_env(astar_1D_all_gif_environments[k], split(k,"=")[2]);
+    display_env(astar_1D_all_gif_environments[k], k, split(k,"=")[2]);
     #println(astar_1D_all_gif_environments[i][1])
     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
 end
