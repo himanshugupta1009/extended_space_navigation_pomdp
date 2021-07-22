@@ -99,15 +99,13 @@ function run_experiment_pipeline(num_humans, num_simulations)
 	lookup_table = nothing
 
     for iteration_num in 1:num_simulations
-
         rand_noise_generator_seed_for_env = Int(ceil(100*rand(rand_rng)))
         rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
 		rand_noise_generator_seed_for_sim = 7
         experiment_env = generate_environment_L_shaped_corridor(num_humans, rand_noise_generator_for_env)
-
 		#Generate PRM and Lookup Table for the first time
 		if(graph == nothing && lookup_table==nothing)
-			graph = generate_prm_vertices(1000,experiment_env)
+			graph = generate_prm_vertices(500,experiment_env)
 	        d = generate_prm_edges(experiment_env, graph, 10)
 	        lookup_table = generate_prm_points_lookup_table_non_holonomic(experiment_env,graph)
 		end
