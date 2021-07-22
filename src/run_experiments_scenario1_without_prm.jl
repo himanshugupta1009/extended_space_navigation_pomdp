@@ -5,18 +5,19 @@ using JLD2
 
 discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions_non_holonomic(m,b)
+actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions(b)
 
-function run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(world, lookup_table, rand_noise_generator, iteration_num, filename)
+function run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(world, rand_noise_generator, iteration_num, filename)
 
     #Create POMDP for env_right_now
     env_right_now = deepcopy(world)
 
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now, lookup_table)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now)
 
-	solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
-                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
+    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100),
+                            calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
+    #display_env(golfcart_2D_action_space_pomdp().world)
 
 	just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
             just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
@@ -43,7 +44,7 @@ end
 
 discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0]
+actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
 
 function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, rand_noise_generator, iteration_num, filename)
 
@@ -95,24 +96,13 @@ function run_experiment_pipeline(num_humans, num_simulations)
     total_sudden_stops_1D_POMDP_planner = 0
     rand_rng = MersenneTwister(100)
 
-	graph = nothing
-	lookup_table = nothing
-
     for iteration_num in 1:num_simulations
 
+		println("\n Running Simulation #", string(iteration_num), "\n")
         rand_noise_generator_seed_for_env = Int(ceil(100*rand(rand_rng)))
         rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
 		rand_noise_generator_seed_for_sim = 7
         experiment_env = generate_environment_no_obstacles(num_humans, rand_noise_generator_for_env)
-
-		#Generate PRM and Lookup Table for the first time
-		if(graph == nothing && lookup_table==nothing)
-			graph = generate_prm_vertices(1000,experiment_env)
-	        d = generate_prm_edges(experiment_env, graph, 10)
-	        lookup_table = generate_prm_points_lookup_table_non_holonomic(experiment_env,graph)
-		end
-
-		println("\n Running Simulation #", string(iteration_num), "\n")
 
 		#Run experiment for 2D action space POMDP planner
 		filename_2D_AS_planner = "./scenario_1/2D/expt_" * string(iteration_num) * ".txt"
@@ -120,7 +110,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
         just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
         just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
         just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
-        just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(experiment_env, lookup_table,
+        just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(experiment_env,
 													MersenneTwister(rand_noise_generator_seed_for_sim), iteration_num, filename_2D_AS_planner)
 
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.

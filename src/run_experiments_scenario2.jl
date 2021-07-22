@@ -103,7 +103,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
         rand_noise_generator_seed_for_env = Int(ceil(100*rand(rand_rng)))
         rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
 		rand_noise_generator_seed_for_sim = 7
-        experiment_env = generate_environment_no_obstacles(num_humans, rand_noise_generator_for_env)
+        experiment_env = generate_environment_small_circular_obstacles(num_humans, rand_noise_generator_for_env)
 
 		#Generate PRM and Lookup Table for the first time
 		if(graph == nothing && lookup_table==nothing)
@@ -115,7 +115,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
 		println("\n Running Simulation #", string(iteration_num), "\n")
 
 		#Run experiment for 2D action space POMDP planner
-		filename_2D_AS_planner = "./scenario_1/2D/expt_" * string(iteration_num) * ".txt"
+		filename_2D_AS_planner = "./scenario_2/2D/expt_" * string(iteration_num) * ".txt"
 		just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
         just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
         just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
@@ -153,7 +153,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
 					risk_data_dict["risky_scenarios"][required_dict_key]["collision_gif_environments"][k] = just_2D_pomdp_all_risky_scenarios[k]
 				end
 			end
-			risky_expt_filename_2D_AS_planner = "./scenario_1/2D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
+			risky_expt_filename_2D_AS_planner = "./scenario_2/2D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
 			save(risky_expt_filename_2D_AS_planner, risk_data_dict)
 		end
 
@@ -170,7 +170,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
         end
 
 		#Run experiment for 1D action space POMDP planner
-		filename_1D_AS_planner = "./scenario_1/1D/expt_" * string(iteration_num) * ".txt"
+		filename_1D_AS_planner = "./scenario_2/1D/expt_" * string(iteration_num) * ".txt"
 		astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
 	    astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions,
 	    astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
@@ -210,7 +210,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
 					risk_data_dict["risky_scenarios"][required_dict_key]["collision_gif_environments"][k] = astar_1D_all_risky_scenarios[k]
 				end
 			end
-			risky_expt_filename_1D_AS_planner = "./scenario_1/1D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
+			risky_expt_filename_1D_AS_planner = "./scenario_2/1D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
 			save(risky_expt_filename_1D_AS_planner, risk_data_dict)
 		end
 
