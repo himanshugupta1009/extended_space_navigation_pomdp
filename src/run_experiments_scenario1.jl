@@ -253,6 +253,22 @@ function run_experiment_pipeline(num_humans, num_simulations)
             average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner
 end
 
+delete_old_txt_and_jld2_files_flag = true
+if(delete_old_txt_and_jld2_files_flag == true)
+	folder_location = "./scenario_1/"
+	#Delete output txt files
+	#1D planner
+	foreach(rm, filter(endswith(".txt"), readdir(folder_location*"1D",join=true)))
+	#2D planner
+	foreach(rm, filter(endswith(".txt"), readdir(folder_location*"2D",join=true)))
+
+	#Delete jld2 files
+	#1D planner
+	foreach(rm, filter(endswith(".jld2"), readdir(folder_location*"1D/risky_scenarios",join=true)))
+	#2D planner
+	foreach(rm, filter(endswith(".jld2"), readdir(folder_location*"2D/risky_scenarios",join=true)))
+end
+
 average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
 average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner = run_experiment_pipeline(300,100)
 
