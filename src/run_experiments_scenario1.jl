@@ -112,7 +112,9 @@ function run_experiment_pipeline(num_humans, num_simulations)
 	        lookup_table = generate_prm_points_lookup_table_non_holonomic(experiment_env,graph)
 		end
 
-		println("\n Running Simulation #", string(iteration_num), "\n")
+		println("\n Running Simulation #", string(iteration_num))
+		println("\n Seed for generating environment is -> ", string(rand_noise_generator_seed_for_env))
+		println("\n Seed for simulating pedestrians is -> ", string(rand_noise_generator_seed_for_sim), "\n")
 
 		#Run experiment for 2D action space POMDP planner
 		filename_2D_AS_planner = "./scenario_1/2D/expt_" * string(iteration_num) * ".txt"
