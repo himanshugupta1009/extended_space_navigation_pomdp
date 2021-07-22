@@ -217,7 +217,7 @@ function get_action_cost(environment, humans_to_avoid, final_x::Float64, final_y
     return total_cost
 end
 
-function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env,humans_to_avoid)
+function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env,humans_to_avoid, time_limit=0.2)
 
     #Action Set
     set_of_delta_angles = Array{Float64,1}([0.0])
@@ -299,7 +299,7 @@ function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env
                 open[node_key] = new_node.heuristic_cost + new_node.actual_cost
             end
         end
-        if(time()- start_time >= 0.2)
+        if(time()- start_time >= time_limit)
             @show("Time exceeded")
             return path
         end
