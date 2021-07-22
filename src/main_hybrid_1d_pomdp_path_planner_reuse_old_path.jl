@@ -219,7 +219,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                 cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
 end
 
-run_simulation_flag = true
+run_simulation_flag = false
 if(run_simulation_flag)
     gr()
     # env = generate_environment_no_obstacles(300,MersenneTwister(523))

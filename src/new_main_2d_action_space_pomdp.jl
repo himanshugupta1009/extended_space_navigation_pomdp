@@ -246,7 +246,7 @@ if(run_simulation_flag)
     # env = generate_environment_large_circular_obstacles(300, MersenneTwister(25))
     env = generate_environment_L_shaped_corridor(300, MersenneTwister(97))
     if(lookup_table == nothing)
-        graph = generate_prm_vertices(1000,env)
+        graph = generate_prm_vertices(1000, MersenneTwister(11), env)
         d = generate_prm_edges(env, graph, 10)
         lookup_table = generate_prm_points_lookup_table_non_holonomic(env,graph)
     end
