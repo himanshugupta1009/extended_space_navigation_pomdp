@@ -31,6 +31,11 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     all_actions = OrderedDict()
     MAX_TIME_LIMIT = 300
 
+    #Generate the initial Hybrid A* path without considering humans
+    env_right_now.cart_hybrid_astar_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
+                                            env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now,
+                                            Array{Tuple{human_state,human_probability_over_goals},1}(),100.0);
+
     #Sense humans near cart before moving
     #Generate Initial Lidar Data and Belief for humans near cart
     env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
@@ -51,8 +56,11 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     #Try to generate the Hybrid A* path
     humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,initial_belief,
                                                         num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
-    env_right_now.cart_hybrid_astar_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
-        env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
+    hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
+        env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid);
+    if(length(hybrid_a_star_path)!= 0)
+        env_right_now.cart_hybrid_astar_path = hybrid_a_star_path
+    end
 
     #Simulate for t=0 to t=1
     io = open(filename,"w")
@@ -211,12 +219,13 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                 cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
 end
 
-run_simulation_flag = false
+run_simulation_flag = true
 if(run_simulation_flag)
     gr()
     # env = generate_environment_no_obstacles(300,MersenneTwister(523))
     # env = generate_environment_small_circular_obstacles(300,MersenneTwister(15))
-    env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
+    # env = generate_environment_large_circular_obstacles(300,MersenneTwister(15))
+    env = generate_environment_L_shaped_corridor(300, MersenneTwister(97))
     env_right_now = deepcopy(env)
 
     #Create POMDP for hybrid_a_star + POMDP speed planners at every time step
