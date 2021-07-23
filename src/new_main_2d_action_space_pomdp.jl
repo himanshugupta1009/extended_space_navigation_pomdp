@@ -238,15 +238,19 @@ function get_available_actions_holonomic(m::POMDP_Planner_2D_action_space,b)
     end
 end
 
-run_simulation_flag = false
+# lookup_table = nothing
+run_simulation_flag = true
 if(run_simulation_flag)
     gr()
-    # env = generate_environment_no_obstacles(300, MersenneTwister(523))
-    # env = generate_environment_small_circular_obstacles(300, MersenneTwister(15))
-    # env = generate_environment_large_circular_obstacles(300, MersenneTwister(25))
-    env = generate_environment_L_shaped_corridor(300, MersenneTwister(97))
+    rand_noise_generator_seed_for_env = 69
+    rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
+    rand_noise_generator_seed_for_sim = 7
+    # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
+    # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
+    # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
+    env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
     if(lookup_table == nothing)
-        graph = generate_prm_vertices(1000, MersenneTwister(11), env)
+        graph = generate_prm_vertices(500, MersenneTwister(11), env)
         d = generate_prm_edges(env, graph, 10)
         lookup_table = generate_prm_points_lookup_table_non_holonomic(env,graph)
     end
@@ -263,7 +267,7 @@ if(run_simulation_flag)
     actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions_non_holonomic(m,b)
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
-                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
+                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true, rng=MersenneTwister(100))
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
@@ -274,7 +278,7 @@ if(run_simulation_flag)
             just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
             just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
             just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
-            just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(111),
+            just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(rand_noise_generator_seed_for_sim),
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
     anim = @animate for k ∈ keys(just_2D_pomdp_all_observed_environments)
