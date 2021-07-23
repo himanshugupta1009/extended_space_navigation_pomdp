@@ -238,7 +238,7 @@ function get_available_actions_holonomic(m::POMDP_Planner_2D_action_space,b)
     end
 end
 
-# lookup_table = nothing
+lookup_table = nothing
 run_simulation_flag = true
 if(run_simulation_flag)
     gr()
@@ -267,7 +267,8 @@ if(run_simulation_flag)
     actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions_non_holonomic(m,b)
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
-                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true, rng=MersenneTwister(100))
+                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true,
+                            rng=MersenneTwister(100))
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
@@ -282,7 +283,7 @@ if(run_simulation_flag)
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
     anim = @animate for k ∈ keys(just_2D_pomdp_all_observed_environments)
-        display_env(just_2D_pomdp_all_observed_environments[k], k);
+        #display_env(just_2D_pomdp_all_observed_environments[k], k);
         #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
     end
 
