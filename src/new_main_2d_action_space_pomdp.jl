@@ -51,7 +51,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     cart_throughout_path[dict_key] = copy(env_right_now.cart)
 
     #Simulate for t=0 to t=1
-    io = open(filename,"w")
+    io = open(filename,"a")
     write_and_print( io, "Simulating for time interval - (" * string(time_taken_by_cart) * " , " * string(time_taken_by_cart+1) * ")" )
     write_and_print( io, "Current cart state = " * string(env_right_now.cart) )
 
@@ -238,23 +238,43 @@ function get_available_actions_holonomic(m::POMDP_Planner_2D_action_space,b)
     end
 end
 
-lookup_table = nothing
+# lookup_table = nothing
+gr()
 run_simulation_flag = true
 if(run_simulation_flag)
-    gr()
-    rand_noise_generator_seed_for_env = 69
+
+    #Set seeds for different random number generators randomly
+    rand_noise_generator_seed_for_env = rand(UInt32)
+    rand_noise_generator_seed_for_sim = rand(UInt32)
+    rand_noise_generator_seed_for_prm = 11
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
-    rand_noise_generator_seed_for_sim = 7
+    rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
+    #Set seeds for different random number generators manually
+    # rand_noise_generator_seed_for_env = 100
+    # rand_noise_generator_seed_for_sim = 7
+    # rand_noise_generator_seed_for_prm = 11
+    # rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
+    # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
+
+
+    #Initialize environment
     # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
     env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
     if(lookup_table == nothing)
-        graph = generate_prm_vertices(500, MersenneTwister(11), env)
+        graph = generate_prm_vertices(500, MersenneTwister(rand_noise_generator_seed_for_prm), env)
         d = generate_prm_edges(env, graph, 10)
         lookup_table = generate_prm_points_lookup_table_non_holonomic(env,graph)
     end
     env_right_now = deepcopy(env)
+
+    filename = "output_just_2d_action_space_pomdp_planner.txt"
+    io = open(filename,"w")
+    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
+    write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
+    write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
+
 
     #Create POMDP for env_right_now
     #POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,Int,Array{location,1}}
@@ -267,11 +287,13 @@ if(run_simulation_flag)
     actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions_non_holonomic(m,b)
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
-                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true,
-                            rng=MersenneTwister(100))
+                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
+
+    write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
+    close(io)
 
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
 
@@ -279,11 +301,11 @@ if(run_simulation_flag)
             just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
             just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
             just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
-            just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_one_simulation_2D_POMDP_planner(env_right_now, MersenneTwister(rand_noise_generator_seed_for_sim),
+            just_2D_pomdp_cart_ran_into_boundary_wall_flag = run_one_simulation_2D_POMDP_planner(env_right_now, rand_noise_generator_for_sim,
                                                                                         golfcart_2D_action_space_pomdp, planner)
 
     anim = @animate for k ∈ keys(just_2D_pomdp_all_observed_environments)
-        #display_env(just_2D_pomdp_all_observed_environments[k], k);
+        display_env(just_2D_pomdp_all_observed_environments[k], k);
         #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
     end
 
