@@ -13,9 +13,13 @@ function run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(world, l
     env_right_now = deepcopy(world)
 
     golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now, lookup_table)
-
 	solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
-                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=0.5, tree_in_info=true)
+                            max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
+
+	io = open(filename,"a")
+	write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
+    close(io)
+
     planner = POMDPs.solve(solver, golfcart_2D_action_space_pomdp);
 
 	just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
@@ -55,7 +59,12 @@ function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, r
     #actions(::POMDP_Planner_1D_action_space) = Float64[-0.5, 0.0, 0.5, -10.0]
 
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
-            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=0.3, tree_in_info=true)
+            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
+
+	io = open(filename,"a")
+	write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
+    close(io)
+
     planner = POMDPs.solve(solver, golfcart_1D_action_space_pomdp);
     #m = golfcart_1D_action_space_pomdp()
 
@@ -99,23 +108,33 @@ function run_experiment_pipeline(num_humans, num_simulations)
 	lookup_table = nothing
 
     for iteration_num in 1:num_simulations
-        rand_noise_generator_seed_for_env = Int(ceil(100*rand(rand_rng)))
-        rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
-		rand_noise_generator_seed_for_sim = 7
+
+		#Set seed for different RNGs
+		rand_noise_generator_seed_for_env = rand(UInt32)
+	    rand_noise_generator_seed_for_sim = rand(UInt32)
+	    rand_noise_generator_seed_for_prm = 11
+	    rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
+	    rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
+
+		#Generate Environemnt
         experiment_env = generate_environment_L_shaped_corridor(num_humans, rand_noise_generator_for_env)
 		#Generate PRM and Lookup Table for the first time
 		if(graph == nothing && lookup_table==nothing)
-			graph = generate_prm_vertices(500, MersenneTwister(11), experiment_env)
+			graph = generate_prm_vertices(500, MersenneTwister(rand_noise_generator_seed_for_prm), experiment_env)
 	        d = generate_prm_edges(experiment_env, graph, 10)
 	        lookup_table = generate_prm_points_lookup_table_non_holonomic(experiment_env,graph)
 		end
 
-		println("\n Running Simulation #", string(iteration_num))
-		println("\n Seed for generating environment is -> ", string(rand_noise_generator_seed_for_env))
-		println("\n Seed for simulating pedestrians is -> ", string(rand_noise_generator_seed_for_sim), "\n")
-
 		#Run experiment for 2D action space POMDP planner
+
 		filename_2D_AS_planner = "./scenario_4/2D/expt_" * string(iteration_num) * ".txt"
+		io = open(filename_2D_AS_planner,"w")
+		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
+	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
+	    write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
+	    write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
+		close(io)
+
 		just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
         just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
         just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,
@@ -171,6 +190,13 @@ function run_experiment_pipeline(num_humans, num_simulations)
 
 		#Run experiment for 1D action space POMDP planner
 		filename_1D_AS_planner = "./scenario_4/1D/expt_" * string(iteration_num) * ".txt"
+		io = open(filename_1D_AS_planner,"w")
+		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
+	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
+	    write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
+	    write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
+		close(io)
+
 		astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
 	    astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions,
 	    astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
