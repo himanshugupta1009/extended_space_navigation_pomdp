@@ -244,19 +244,21 @@ run_simulation_flag = false
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
-    rand_noise_generator_seed_for_env = rand(UInt32)
-    rand_noise_generator_seed_for_sim = rand(UInt32)
-    rand_noise_generator_seed_for_prm = 11
-    rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
-    rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
-
-    #Set seeds for different random number generators manually
-    # rand_noise_generator_seed_for_env = 4269548019
-    # rand_noise_generator_seed_for_sim = 2554287444
+    # rand_noise_generator_seed_for_env = rand(UInt32)
+    # rand_noise_generator_seed_for_sim = rand(UInt32)
     # rand_noise_generator_seed_for_prm = 11
     # rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
+    #Set seeds for different random number generators manually
+    rand_noise_generator_seed_for_env = 2440149026
+    rand_noise_generator_seed_for_sim = 599295736
+    rand_noise_generator_seed_for_prm = 11
+    rand_noise_generator_seed_for_solver = 396721398
+    rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
+    rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
+    rand_noise_generator_for_prm = MersenneTwister(rand_noise_generator_seed_for_prm)
+    rand_noise_generator_for_solver = MersenneTwister(rand_noise_generator_seed_for_solver)
 
     #Initialize environment
     # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
@@ -264,7 +266,7 @@ if(run_simulation_flag)
     # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
     env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
     if(lookup_table == nothing)
-        graph = generate_prm_vertices(500, MersenneTwister(rand_noise_generator_seed_for_prm), env)
+        graph = generate_prm_vertices(500, rand_noise_generator_for_prm, env)
         d = generate_prm_edges(env, graph, 10)
         lookup_table = generate_prm_points_lookup_table_non_holonomic(env,graph)
     end
@@ -275,7 +277,6 @@ if(run_simulation_flag)
     write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
     write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
     write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
-
 
     #Create POMDP for env_right_now
     #POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,Int,Array{location,1}}
@@ -291,7 +292,7 @@ if(run_simulation_flag)
     #                         max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
                             max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true,
-                            rng = MersenneTwister(3052739574))
+                            rng = rand_noise_generator_for_solver)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_2D_action_space),max_depth=100,
     #                         final_value=reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout),
     #                         calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=100,D=100,T_max=0.5, tree_in_info=true, default_action=(-10.0,-10.0))
