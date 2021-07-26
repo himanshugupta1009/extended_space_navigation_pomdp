@@ -5,6 +5,8 @@ include("two_d_action_space_pomdp.jl")
 include("belief_tracker.jl")
 include("simulator.jl")
 using DataStructures
+using FileIO
+using JLD2
 
 Base.copy(s::cart_state) = cart_state(s.x, s.y,s.theta,s.v,s.L,s.goal)
 
@@ -87,7 +89,9 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
             # m = golfcart_2D_action_space_pomdp()
             @show(m.world.cart.x)
             b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
+            check_consistency_personal_copy(io,planner.rs)
             a, info = action_info(planner, b)
+            check_consistency_personal_copy(io,planner.rs)
             write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string((a[1]*180/pi, a[2])) )
             dict_key = "t="*string(time_taken_by_cart)
             all_generated_trees[dict_key] = deepcopy(info)
@@ -240,7 +244,7 @@ end
 
 # lookup_table = nothing
 gr()
-run_simulation_flag = false
+run_simulation_flag = true
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
@@ -251,10 +255,10 @@ if(run_simulation_flag)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 2440149026
-    rand_noise_generator_seed_for_sim = 599295736
+    rand_noise_generator_seed_for_env = 3288174117
+    rand_noise_generator_seed_for_sim = 1346512169
     rand_noise_generator_seed_for_prm = 11
-    rand_noise_generator_seed_for_solver = 396721398
+    rand_noise_generator_seed_for_solver = 2721529192
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
     rand_noise_generator_for_prm = MersenneTwister(rand_noise_generator_seed_for_prm)
@@ -265,6 +269,7 @@ if(run_simulation_flag)
     # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
     env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
+    lookup_table = load("prm_hash_table.jld2")["lookup_table"]
     if(lookup_table == nothing)
         graph = generate_prm_vertices(500, rand_noise_generator_for_prm, env)
         d = generate_prm_edges(env, graph, 10)

@@ -14,3 +14,18 @@ function lala()
 end
 
 lala()
+
+
+function damn()
+    try
+        try
+            sqrt("ten")
+        catch e
+            println("You should have entered a numeric value")
+            println(e)
+        end
+        ss
+    catch f
+        println("2 step verification DONE" , f)
+    end
+end

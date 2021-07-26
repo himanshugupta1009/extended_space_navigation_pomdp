@@ -518,3 +518,14 @@ function check_if_cart_collided_with_static_obstacles(world)
     end
     return false
 end
+
+function check_consistency_personal_copy(io, s)
+    if s.move_count > 0.01*length(s.rngs) && s.move_warning
+        msg = """
+             DESPOT's MemorizingSource random number generator had to move the memory locations of the rngs $(s.move_count) times. If this number was large, it may be affecting performance (profiling is the best way to tell).
+             To suppress this warning, use MemorizingSource(..., move_warning=false).
+             To reduce the number of moves, try using MemorizingSource(..., min_reserve=n) and increase n until the number of moves is low (the final min_reserve was $(s.min_reserve)).
+             """
+        write_and_print(io, msg )
+    end
+end

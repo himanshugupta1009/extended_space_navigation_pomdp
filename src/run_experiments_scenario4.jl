@@ -102,8 +102,7 @@ function run_experiment_pipeline(num_humans, num_simulations)
     total_safe_paths_1D_POMDP_planner = 0
 	num_times_cart_reached_goal_1D_POMDP_planner = 0
     total_sudden_stops_1D_POMDP_planner = 0
-    rand_rng = MersenneTwister(100)
-
+	
 	graph = nothing
 	lookup_table = nothing
 
