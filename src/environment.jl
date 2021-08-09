@@ -234,7 +234,7 @@ function display_env(env::experiment_environment, time_step=nothing, gif_env_num
         scatter!([env.cart_lidar_data[i].x], [env.cart_lidar_data[i].y],color="green",msize=0.5*plot_size/env.length)
     end
 
-    #Plot humans from cart_lidar_data
+    #Plot humans in complete_cart_lidar_data
     for i in 1: length(env.complete_cart_lidar_data)
         in_lidar_data_flag = false
         for green_human in env.cart_lidar_data
@@ -363,6 +363,59 @@ function display_env(env::experiment_environment, time_step=nothing, gif_env_num
     if(time_step!=nothing)
         annotate!(env.length/2, env.breadth, text(time_step, :blue, :right, 20))
     end
+    plot!(size=(plot_size,plot_size))
+    display(p)
+end
+
+
+function display_prm_path_from_given_vertex(env::experiment_environment, prm, vertex_num)
+
+    #Plot Boundaries
+    p = plot([0.0],[0.0],legend=false,grid=false)
+    plot!([env.length], [env.breadth],legend=false)
+
+    #Plot Humans in the cart lidar data
+    for i in 1: length(env.cart_lidar_data)
+        scatter!([env.cart_lidar_data[i].x], [env.cart_lidar_data[i].y],color="green",msize=0.5*plot_size/env.length)
+    end
+
+    #Plot humans in complete cart_lidar_data
+    for i in 1: length(env.complete_cart_lidar_data)
+        in_lidar_data_flag = false
+        for green_human in env.cart_lidar_data
+            if(env.complete_cart_lidar_data[i].id == green_human.id)
+                in_lidar_data_flag = true
+                break
+            end
+        end
+        if(!in_lidar_data_flag)
+            scatter!([env.complete_cart_lidar_data[i].x], [env.complete_cart_lidar_data[i].y],color="red",msize=0.5*plot_size/env.length)
+        end
+    end
+
+    #Plot Obstacles
+    for i in 1: length(env.obstacles)
+        scatter!([env.obstacles[i].x], [env.obstacles[i].y],color="black",shape=:circle,msize=plot_size*env.obstacles[i].r/env.length)
+    end
+
+    #Plot Golfcart
+    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.3*plot_size*cart_size/env.length)
+    quiver!([env.cart.x],[env.cart.y],quiver=([cos(env.cart.theta)],[sin(env.cart.theta)]), color="blue")
+
+    prm_path = get_prop(prm,vertex_num,:path_to_goal)
+    prm_path_x = []
+    prm_path_y = []
+
+    for waypoint in prm_path
+        push!(prm_path_x, get_prop(prm,waypoint,:x))
+        push!(prm_path_y, get_prop(prm,waypoint,:y))
+        scatter!([get_prop(prm,waypoint,:x)], [get_prop(prm,waypoint,:y)], shape=:circle, color="green", msize= 0.3*plot_size*cart_size/env.length)
+    end
+
+    plot!(prm_path_x,prm_path_y)
+
+    annotate!(env.cart_start_location.x, env.cart_start_location.y, text("S", :purple, :right, 20))
+    annotate!(env.cart.goal.x, env.cart.goal.y, text("G", :purple, :right, 20))
     plot!(size=(plot_size,plot_size))
     display(p)
 end
