@@ -1,0 +1,2 @@
+Command to be run on local system to get stuff from remote
+scp -r  himanshu@omak.colorado.edu:/home/himanshu/Documents/Research/human_aware_navigation/src/scenario_1/2D/ ./
