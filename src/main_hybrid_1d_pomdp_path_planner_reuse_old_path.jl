@@ -21,6 +21,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     cart_ran_into_boundary_wall_flag = false
     cart_ran_into_static_obstacle_flag = false
     cart_reached_goal_flag = true
+    experiment_success_flag = true
     cart_throughout_path = OrderedDict()
     all_gif_environments = OrderedDict()
     all_observed_environments = OrderedDict()
@@ -29,6 +30,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     all_generated_trees = OrderedDict()
     all_risky_scenarios = OrderedDict()
     all_actions = OrderedDict()
+    all_planners = OrderedDict()
     MAX_TIME_LIMIT = 300
 
     #Generate the initial Hybrid A* path without considering humans
@@ -72,7 +74,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                         env_right_now,initial_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios, time_taken_by_cart,
                                                         num_humans_to_care_about_while_pomdp_planning,cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                        MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) )
+                                                        MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) ,io )
     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
 
@@ -86,115 +88,126 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
 
-    #Start Simulating for t>1
-    while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
-        io = open(filename,"a")
-        cart_ran_into_boundary_wall_flag = check_if_cart_collided_with_boundary_wall(env_right_now)
-        cart_ran_into_static_obstacle_flag = check_if_cart_collided_with_static_obstacles(env_right_now)
+    try
+        #Start Simulating for t>1
+        while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
+            io = open(filename,"a")
+            cart_ran_into_boundary_wall_flag = check_if_cart_collided_with_boundary_wall(env_right_now)
+            cart_ran_into_static_obstacle_flag = check_if_cart_collided_with_static_obstacles(env_right_now)
 
-        if( !cart_ran_into_boundary_wall_flag && !cart_ran_into_static_obstacle_flag )
+            if( !cart_ran_into_boundary_wall_flag && !cart_ran_into_static_obstacle_flag )
 
-            write_and_print( io, "Simulating for time interval - (" * string(time_taken_by_cart) * " , " * string(time_taken_by_cart+1) * ")" )
-            write_and_print( io, "Current cart state = " * string(env_right_now.cart) )
+                write_and_print( io, "Simulating for time interval - (" * string(time_taken_by_cart) * " , " * string(time_taken_by_cart+1) * ")" )
+                write_and_print( io, "Current cart state = " * string(env_right_now.cart) )
 
-            #Try to generate the Hybrid A* path
-            humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,current_belief,
-                                                                num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
-            hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
-                env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
+                #Try to generate the Hybrid A* path
+                humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,current_belief,
+                                                                    num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
+                hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
+                    env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
 
-            #If couldn't generate the path and no old path exists
-            if( (length(hybrid_a_star_path) == 0) && (length(env_right_now.cart_hybrid_astar_path) == 0) )
-                write_and_print( io, "**********Hybrid A Star Path Not found. No old path exists either**********" )
-                env_right_now.cart.v = 0.0
-                #That means the cart is stationary and we now just have to simulate the pedestrians.
-                current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
-                                                                    env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios,
-                                                                    time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range,
-                                                                    m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) )
-
-                current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
-                                                                    env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
-                number_risks += risks_in_simulation
-                dict_key = "t="*string(time_taken_by_cart)
-                all_generated_trees[dict_key] = nothing
-                all_actions[dict_key] = nothing
-
-                write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
-                write_and_print( io, "************************************************************************" )
-
-            else
-                #If new path was found, use it else reuse the old one
-                if(length(hybrid_a_star_path)!= 0)
-                    env_right_now.cart_hybrid_astar_path = hybrid_a_star_path
-                    write_and_print( io, "**********Hybrid A Star Path found**********" )
-                else
-                    write_and_print( io, "**********Hybrid A Star Path Not found. Reusing old path**********" )
-                end
-
-                b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
-                a, info = action_info(planner, b)
-                dict_key = "t="*string(time_taken_by_cart)
-                all_generated_trees[dict_key] = deepcopy(info)
-                all_actions[dict_key] = a
-                write_and_print( io, "Action chosen by 1D action space speed POMDP planner: " * string(a) )
-
-                if(env_right_now.cart.v!=0 && a ==-10.0)
-                    number_of_sudden_stops += 1
-                end
-
-                env_right_now.cart.v = clamp(env_right_now.cart.v + a, 0, m.max_cart_speed)
-
-                if(env_right_now.cart.v != 0.0)
-                    #That means the cart is not stationary and we now have to simulate both cart and the pedestrians.
-                    current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
-                                                                        env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments, all_risky_scenarios, time_taken_by_cart,
-                                                                        num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                                        MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ))
-
-                    current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
-                                                                        env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
-                    number_risks += risks_in_simulation
-                else
+                #If couldn't generate the path and no old path exists
+                if( (length(hybrid_a_star_path) == 0) && (length(env_right_now.cart_hybrid_astar_path) == 0) )
+                    write_and_print( io, "**********Hybrid A Star Path Not found. No old path exists either**********" )
+                    env_right_now.cart.v = 0.0
                     #That means the cart is stationary and we now just have to simulate the pedestrians.
                     current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                                         env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios,
-                                                                        time_taken_by_cart, num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range,
-                                                                        m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) )
+                                                                        time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range,
+                                                                        m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),io )
 
                     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                         env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
                     number_risks += risks_in_simulation
+                    dict_key = "t="*string(time_taken_by_cart)
+                    all_generated_trees[dict_key] = nothing
+                    all_actions[dict_key] = nothing
+                    all_planners[dict_key] = nothing
+
+                    write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
+                    write_and_print( io, "************************************************************************" )
+
+                else
+                    #If new path was found, use it else reuse the old one
+                    if(length(hybrid_a_star_path)!= 0)
+                        env_right_now.cart_hybrid_astar_path = hybrid_a_star_path
+                        write_and_print( io, "**********Hybrid A Star Path found**********" )
+                    else
+                        write_and_print( io, "**********Hybrid A Star Path Not found. Reusing old path**********" )
+                    end
+
+                    dict_key = "t="*string(time_taken_by_cart)
+                    all_planners[dict_key] = deepcopy(planner)
+                    b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
+                    a, info = action_info(planner, b)
+                    all_generated_trees[dict_key] = deepcopy(info)
+                    all_actions[dict_key] = a
+                    write_and_print( io, "Action chosen by 1D action space speed POMDP planner: " * string(a) )
+
+                    if(env_right_now.cart.v!=0 && a ==-10.0)
+                        number_of_sudden_stops += 1
+                    end
+
+                    env_right_now.cart.v = clamp(env_right_now.cart.v + a, 0, m.max_cart_speed)
+
+                    if(env_right_now.cart.v != 0.0)
+                        #That means the cart is not stationary and we now have to simulate both cart and the pedestrians.
+                        current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
+                                                                            env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments, all_risky_scenarios, time_taken_by_cart,
+                                                                            num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
+                                                                            MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),io )
+
+                        current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
+                                                                            env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
+                        number_risks += risks_in_simulation
+                    else
+                        #That means the cart is stationary and we now just have to simulate the pedestrians.
+                        current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
+                                                                            env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios,
+                                                                            time_taken_by_cart, num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range,
+                                                                            m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),io )
+
+                        current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
+                                                                            env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
+                        number_risks += risks_in_simulation
+                    end
+
+                    write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
+                    write_and_print( io, "************************************************************************" )
                 end
 
-                write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
-                write_and_print( io, "************************************************************************" )
-            end
+                time_taken_by_cart += 1
+                dict_key = "t="*string(time_taken_by_cart)
+                all_observed_environments[dict_key] = deepcopy(env_right_now)
+                all_generated_beliefs_using_complete_lidar_data[dict_key] = current_belief_over_complete_cart_lidar_data
+                all_generated_beliefs[dict_key] = current_belief
+                cart_throughout_path[dict_key] = copy(env_right_now.cart)
 
-            time_taken_by_cart += 1
-            dict_key = "t="*string(time_taken_by_cart)
-            all_observed_environments[dict_key] = deepcopy(env_right_now)
-            all_generated_beliefs_using_complete_lidar_data[dict_key] = current_belief_over_complete_cart_lidar_data
-            all_generated_beliefs[dict_key] = current_belief
-            cart_throughout_path[dict_key] = copy(env_right_now.cart)
-
-            if(time_taken_by_cart>MAX_TIME_LIMIT)
+                if(time_taken_by_cart>MAX_TIME_LIMIT)
+                    cart_reached_goal_flag = false
+                    break
+                end
+            else
+                if(cart_ran_into_static_obstacle_flag)
+                    write_and_print( io, "Cart ran into a static obstacle in the environment")
+                elseif (cart_ran_into_boundary_wall_flag)
+                    write_and_print( io, "Cart ran into a boundary wall in the environment")
+                end
                 cart_reached_goal_flag = false
                 break
             end
-        else
-            if(cart_ran_into_static_obstacle_flag)
-                write_and_print( io, "Cart ran into a static obstacle in the environment")
-            elseif (cart_ran_into_boundary_wall_flag)
-                write_and_print( io, "Cart ran into a boundary wall in the environment")
-            end
-            cart_reached_goal_flag = false
-            break
+            close(io)
         end
-        close(io)
+    catch e
+        println("\n Things failed during the simulation. \n The error message is : \n ")
+        println(e)
+        experiment_success_flag = false
+        return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
+                all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
+                time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
     end
-
     io = open(filename,"a")
+
     if(cart_reached_goal_flag == true)
         write_and_print( io, "Goal Reached! :D" )
         write_and_print( io, "Time Taken by cart to reach goal : " * string(time_taken_by_cart) )
@@ -215,12 +228,15 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     close(io)
 
     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
-                all_generated_trees,all_risky_scenarios, all_actions, cart_throughout_path, number_risks, number_of_sudden_stops, time_taken_by_cart,
-                cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag
+        all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
+        time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
 end
 
 gr()
 run_simulation_flag = false
+write_to_file_flag = true
+create_gif_flag = false
+
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
@@ -273,17 +289,28 @@ if(run_simulation_flag)
     #m = golfcart_1D_action_space_pomdp()
 
     astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
-    astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions,
+    astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
     astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
-    astar_1D_cart_reached_goal_flag, astar_1D_cart_ran_into_static_obstacle_flag,
-    astar_1D_cart_ran_into_boundary_wall_flag = run_one_simulation_1D_POMDP_planner(env_right_now, MersenneTwister(111),
+    astar_1D_cart_reached_goal_flag, astar_1D_cart_ran_into_static_obstacle_flag, astar_1D_cart_ran_into_boundary_wall_flag,
+    astar_1D_experiment_success_flag = run_one_simulation_1D_POMDP_planner(env_right_now, rand_noise_generator_for_sim,
                                                                             golfcart_1D_action_space_pomdp, planner)
-
-    anim = @animate for k ∈ keys(astar_1D_all_observed_environments)
-        # display_env(astar_1D_all_observed_environments[k],k);
-        #savefig("./plots_reusing_hybrid_astar_path_1d_action_space_speed_pomdp_planner/plot_"*string(i)*".png")
+    if(create_gif_flag)
+        anim = @animate for k ∈ keys(astar_1D_all_observed_environments)
+            display_env(astar_1D_all_observed_environments[k],k);
+            #savefig("./plots_reusing_hybrid_astar_path_1d_action_space_speed_pomdp_planner/plot_"*string(i)*".png")
+        end
+        gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 2)
     end
-    gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 2)
+
+    if(write_to_file_flag)
+        expt_file_name = "expt_details_resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner.jld2"
+        write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
+                solver.rng.seed[1],astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
+                astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
+                astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
+                astar_1D_cart_reached_goal_flag, astar_1D_cart_ran_into_static_obstacle_flag, astar_1D_cart_ran_into_boundary_wall_flag,
+                astar_1D_experiment_success_flag,expt_file_name)
+    end
 
 end
 
