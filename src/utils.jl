@@ -152,6 +152,8 @@ end
 
 function get_heading_angle(human_x, human_y, cart_x, cart_y)
 
+    # NOTE: Angle returned by this function is always wrapped between 0 and 2pi
+     
     #First Quadrant
     if(human_x >= cart_x && human_y >= cart_y)
         if(human_x == cart_x)
@@ -286,13 +288,14 @@ function move_human_for_one_time_step_in_actual_environment(world,time_step,user
     return moved_human_positions
 end
 
-function get_count_number_of_risks(world)
+function get_count_number_of_risks(world, dict_key, io)
     risks = 0
     if(world.cart.v>=1.0)
         for human in world.complete_cart_lidar_data
             euclidean_distance = sqrt( (human.x - world.cart.x)^2 + (human.y - world.cart.y)^2 )
             if(euclidean_distance<=0.5)
-                println( "A risky scenario encountered and the distance is : ", euclidean_distance )
+                write_and_print( io, "At time step " * dict_key * ", a risky scenario was encountered with the following human : "* string(human))
+                write_and_print( io, "Distance between cart and this human : "* string(euclidean_distance))
                 risks += 1
             end
         end
@@ -528,4 +531,39 @@ function check_consistency_personal_copy(io, s)
              """
         write_and_print(io, msg )
     end
+end
+
+function write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
+        rand_noise_generator_seed_for_solver, all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
+        all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
+        time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag, filename)
+
+    d = Dict()
+    d["rand_noise_generator_seed_for_env"] = rand_noise_generator_seed_for_env
+    d["rand_noise_generator_seed_for_sim"] = rand_noise_generator_seed_for_sim
+    d["rand_noise_generator_seed_for_prm"] = rand_noise_generator_seed_for_prm
+    d["rand_noise_generator_seed_for_solver"] = rand_noise_generator_seed_for_solver
+    d["all_gif_environemnts"] = all_gif_environments
+    d["all_observed_environments"] = all_observed_environments
+    d["all_generated_beliefs_using_complete_lidar_data"] = all_generated_beliefs_using_complete_lidar_data
+    d["all_generated_beliefs"] = all_generated_beliefs
+    #d["all_generated_trees"] = all_generated_trees
+    d["all_risky_scenarios"] = all_risky_scenarios
+    d["all_actions"] = all_actions
+    d["all_planners"] = all_planners
+    #d["cart_throughout_path"] = cart_throughout_path
+    d["number_risks"] = number_risks
+    d["number_of_sudden_stops"] = number_of_sudden_stops
+    d["time_taken_by_cart"] = time_taken_by_cart
+    d["cart_reached_goal_flag"] = cart_reached_goal_flag
+    d["cart_ran_into_static_obstacle_flag"] = cart_ran_into_static_obstacle_flag
+    d["cart_ran_into_boundary_wall_flag"] = cart_ran_into_boundary_wall_flag
+    d["experiment_success_flag"] = experiment_success_flag
+
+    save(filename, d)
+end
+
+function find_distance_between_two_points(p1_x,p1_y, p2_x, p2_y)
+    euclidean_distance = ((p1_x - p2_x)^2 + (p1_y - p2_y)^2)^0.5
+    return euclidean_distance
 end
