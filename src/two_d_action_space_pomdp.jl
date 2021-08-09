@@ -19,8 +19,18 @@ struct POMDP_state_2D_action_space
     pedestrians::Array{human_state,1}
 end
 
+#Define POMDP Action Struct
+struct POMDP_2D_action_type
+    delta_angle::Float64
+    delta_velocity::Float64
+    first_prm_vertex_x::Float64
+    first_prm_vertex_y::Float64
+    second_prm_vertex_x::Float64
+    second_prm_vertex_y::Float64
+end
+
 #POMDP struct
-mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,Tuple{Float64,Float64},Array{location,1}}
+mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,POMDP_2D_action_type,Array{location,1}}
     discount_factor::Float64
     pedestrian_distance_threshold::Float64
     pedestrian_collision_penalty::Float64
@@ -31,7 +41,7 @@ mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_acti
     goal_reward::Float64
     max_cart_speed::Float64
     world::experiment_environment
-    lookup_table::Array{Tuple{Int64,Float64,Float64,Float64},3}
+    lookup_table::Array{lookup_table_struct,2}
 end
 
 #Function to check terminal state
@@ -160,8 +170,9 @@ function update_cart_position_pomdp_planning_2D_action_space(current_cart, delta
         cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
         cart_path = repeat(cart_path, num_time_intervals+1)
     else
-        cart_path = Tuple{Float64,Float64,Float64}[]
-        push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
+        cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
+        # cart_path = Tuple{Float64,Float64,Float64}[]
+        # push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
         arc_length = new_cart_speed
         # steering_angle = atan((current_cart.L*delta_angle)/arc_length)
         final_orientation_angle = wrap_between_0_and_2Pi(current_theta+delta_angle)
@@ -189,8 +200,97 @@ function update_cart_position_pomdp_planning_2D_action_space(current_cart, delta
     #@show(current_cart_position,steering_angle, new_cart_speed, cart_path)
     return cart_path
 end
-#@code_warntype update_cart_position_pomdp_planning_2D_action_space(env.cart, pi/12, 5.0, 100.0,100.0)
-#update_cart_position_pomdp_planning_2D_action_space(env.cart, pi/12, 5.0, 100.0,100.0,1.0)
+# @code_warntype update_cart_position_pomdp_planning_2D_action_space(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), pi/12, 5.0, env.length, env.breadth,1.0,10)
+# @btime update_cart_position_pomdp_planning_2D_action_space(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), pi/12, 5.0, env.length, env.breadth,1.0,10)
+
+function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(current_cart, first_prm_vertex_x, first_prm_vertex_y, second_prm_vertex_x,
+                                                    second_prm_vertex_y, new_cart_speed, world_length, world_breadth,goal_distance_threshold, num_time_intervals = 10)
+
+    current_x, current_y, current_theta = current_cart.x, current_cart.y, current_cart.theta
+    if(new_cart_speed == 0.0)
+        cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
+        cart_path = repeat(cart_path, num_time_intervals+1)
+    else
+        cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
+        # cart_path = Tuple{Float64,Float64,Float64}[]
+        # push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
+        # arc_length = new_cart_speed
+        dist_to_first_prm_vertex::Float64 = sqrt( (first_prm_vertex_x-current_x)^2 + (first_prm_vertex_y-current_y)^2 )
+        if(dist_to_first_prm_vertex >= new_cart_speed)
+            required_orientation::Float64 = get_heading_angle( first_prm_vertex_x, first_prm_vertex_y, current_x, current_y)
+            delta_angle::Float64 = required_orientation - current_theta
+            for i in (1:num_time_intervals)
+                new_theta = current_theta + (delta_angle * (1/num_time_intervals))
+                new_theta = wrap_between_0_and_2Pi(new_theta)
+                new_x = current_x + new_cart_speed*cos(required_orientation)*(1/num_time_intervals)
+                new_y = current_y + new_cart_speed*sin(required_orientation)*(1/num_time_intervals)
+                push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
+                current_x, current_y,current_theta = new_x,new_y,new_theta
+                if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
+                    for j in i+1:num_time_intervals
+                        push!(cart_path,(current_x, current_y, current_theta))
+                    end
+                    return cart_path
+                end
+            end
+        else
+            dist_in_each_interval = new_cart_speed*(1/num_time_intervals)
+            interval_num_where_switch_will_happen = convert(Int,floor(dist_to_first_prm_vertex/dist_in_each_interval)+1)
+            required_orientation = get_heading_angle( first_prm_vertex_x, first_prm_vertex_y, current_x, current_y)
+            delta_angle = required_orientation - current_theta
+            #Simulate for i=1 to i=(interval_num_where_switch_will_happen-1)
+            for i in (1:interval_num_where_switch_will_happen-1)
+                new_theta = current_theta + (delta_angle * (1/interval_num_where_switch_will_happen))
+                new_theta = wrap_between_0_and_2Pi(new_theta)
+                new_x = current_x + dist_in_each_interval*cos(required_orientation)
+                new_y = current_y + dist_in_each_interval*sin(required_orientation)
+                push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
+                current_x, current_y,current_theta = new_x,new_y,new_theta
+                if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
+                    for j in i+1:num_time_intervals
+                        push!(cart_path,(current_x, current_y, current_theta))
+                    end
+                    return cart_path
+                end
+            end
+            #Simulate for i=interval_num_where_switch_will_happen
+            remaining_distance_to_first_prm_vertex = sqrt( (first_prm_vertex_x-current_x)^2 + (first_prm_vertex_y-current_y)^2 )
+            distance_along_the_path_to_second_prm_path = dist_in_each_interval - remaining_distance_to_first_prm_vertex
+            new_required_orientation = get_heading_angle( second_prm_vertex_x, second_prm_vertex_y, first_prm_vertex_x, first_prm_vertex_y)
+            new_delta_angle = new_required_orientation - required_orientation
+            new_theta = required_orientation + (new_delta_angle * (1/(num_time_intervals - interval_num_where_switch_will_happen + 1)))
+            new_x = first_prm_vertex_x + distance_along_the_path_to_second_prm_path*cos(new_required_orientation)
+            new_y = first_prm_vertex_y + distance_along_the_path_to_second_prm_path*sin(new_required_orientation)
+            push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
+            current_x, current_y,current_theta = new_x,new_y,new_theta
+            if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
+                for j in interval_num_where_switch_will_happen+1:num_time_intervals
+                    push!(cart_path,(current_x, current_y, current_theta))
+                end
+                return cart_path
+            end
+            #Simulate for i=(interval_num_where_switch_will_happen+1) to i=num_time_intervals
+            for i in (interval_num_where_switch_will_happen+1:num_time_intervals)
+                new_theta = current_theta + (new_delta_angle * (1/(num_time_intervals - interval_num_where_switch_will_happen + 1)))
+                new_theta = wrap_between_0_and_2Pi(new_theta)
+                new_x = current_x + dist_in_each_interval*cos(new_required_orientation)
+                new_y = current_y + dist_in_each_interval*sin(new_required_orientation)
+                push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
+                current_x, current_y,current_theta = new_x,new_y,new_theta
+                if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
+                    for j in i+1:num_time_intervals
+                        push!(cart_path,(current_x, current_y, current_theta))
+                    end
+                    return cart_path
+                end
+            end
+        end
+    end
+    #@show(current_cart_position,steering_angle, new_cart_speed, cart_path)
+    return cart_path
+end
+# @code_warntype update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0,2.0, 3.0,5.0, 5, env.length, env.breadth, 1.0, 10)
+# @btime update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0,2.0, 3.0,5.0, 5, env.length, env.breadth, 1.0, 10)
 
 
 #************************************************************************************************
@@ -220,6 +320,7 @@ end
 function goal_reward_pomdp_planning_2D_action_space(s, distance_threshold, goal_reached_flag, goal_reward)
     total_reward = 0.0
     if(goal_reached_flag)
+        println("Wow, goal reached")
         total_reward = goal_reward
     else
         euclidean_distance = ((s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2)^0.5
@@ -267,26 +368,32 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         #println("Goal reached")
         new_cart_position = (-100.0, -100.0, -100.0)
         cart_reached_goal_flag = true
-        new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
+        new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
         push!(observed_positions, location(-25.0,-25.0))
     elseif( (s.cart.x>m.world.length) || (s.cart.y>m.world.breadth) || (s.cart.x<0.0) || (s.cart.y<0.0) )
         #print("Running into wall")
         new_cart_position = (-100.0, -100.0, -100.0)
         collision_with_obstacle_flag = true
-        new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
+        new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
         push!(observed_positions, location(-50.0,-50.0))
     # elseif(a[2] == -10.0)
     #     new_cart_position = (-100.0, -100.0, -100.0)
     #     immediate_stop_flag = true
     #     new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
     else
-        if(a[2] == -10.0)
+        if(a.delta_velocity == -10.0)
             immediate_stop_flag = true
         end
-        new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
         num_time_intervals = 2
-        cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a[1], new_cart_velocity, m.world.length,
-                                                                                        m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
+        new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
+        if(a.delta_angle == -10.0)
+            cart_path = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(s.cart, a.first_prm_vertex_x, a.first_prm_vertex_y, a.second_prm_vertex_x,
+                                                                                    a.second_prm_vertex_y, new_cart_velocity,m.world.length,m.world.breadth,
+                                                                                    m.cart_goal_reached_distance_threshold, num_time_intervals)
+        else
+            cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a.delta_angle, new_cart_velocity, m.world.length,
+                                                                                            m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
+        end
         new_cart_position = cart_path[end]
         #If cart goes out of bounds by taking this action
         if( (new_cart_position[1]>m.world.length) || (new_cart_position[2]>m.world.breadth) || (new_cart_position[1]<0.0) || (new_cart_position[2]<0.0) )
@@ -298,52 +405,78 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         else
             # Simulate all the pedestrians
             for human in s.pedestrians
+                if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L+0.5, human.x, human.y, m.pedestrian_distance_threshold) )
+                    new_cart_position = (-100.0, -100.0, -100.0)
+                    collision_with_pedestrian_flag = true
+                    new_human_states = human_state[]
+                    observed_positions = location[ location(-50.0,-50.0) ]
+                    # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
+                    # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
+                    break
+                end
                 modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
                 push!(new_human_states, modified_human_state)
                 push!(observed_positions, observed_location)
             end
-            #Cart is moving
-            if(new_cart_velocity != 0.0)
-                for time_index in 1:num_time_intervals+1
-                    for human_index in 1:length(s.pedestrians)
-                        intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
-                                                                        new_human_states[human_index].x,new_human_states[human_index].y, (1/num_time_intervals)*(time_index-1) )
-                        if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
-                                                    intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
-                            new_cart_position = (-100.0, -100.0, -100.0)
-                            collision_with_pedestrian_flag = true
-                            #new_human_states = human_state[]
-                            observed_positions = location[ location(-50.0,-50.0) ]
-                            break
-                        end
-                    end
-                    if( !collision_with_pedestrian_flag )
-                        #Check if the cart intersects with any static obstacle
-                        for obstacle in m.world.obstacles
-                            if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L,
-                                                                    obstacle.x, obstacle.y,obstacle.r + m.obstacle_distance_threshold) )
+
+            if(!collision_with_pedestrian_flag)
+                #Cart is moving
+                if(new_cart_velocity != 0.0)
+                    for time_index in 2:num_time_intervals+1
+                        for human_index in 1:length(s.pedestrians)
+                            intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
+                                                                            new_human_states[human_index].x,new_human_states[human_index].y, (1/num_time_intervals)*(time_index-1) )
+                            if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
+                                                        intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
                                 new_cart_position = (-100.0, -100.0, -100.0)
-                                collision_with_obstacle_flag = true
-                                #new_human_states = human_state[]
+                                collision_with_pedestrian_flag = true
+                                new_human_states = human_state[]
                                 observed_positions = location[ location(-50.0,-50.0) ]
+                                # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
+                                # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
                                 break
                             end
                         end
+                        if( !collision_with_pedestrian_flag )
+                            #Check if the cart intersects with any static obstacle
+                            for obstacle in m.world.obstacles
+                                if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L,
+                                                                        obstacle.x, obstacle.y,obstacle.r + m.obstacle_distance_threshold) )
+                                    new_cart_position = (-100.0, -100.0, -100.0)
+                                    collision_with_obstacle_flag = true
+                                    new_human_states = human_state[]
+                                    observed_positions = location[ location(-50.0,-50.0) ]
+                                    # println("Collision with this obstacle " ,obstacle, "\nCart's position is : ", cart_path[time_index] )
+                                    break
+                                end
+                            end
+                        end
+                        if(collision_with_pedestrian_flag || collision_with_obstacle_flag)
+                            cart_reached_goal_flag = false
+                            break
+                        end
                     end
-                    if(collision_with_pedestrian_flag || collision_with_obstacle_flag)
-                        cart_reached_goal_flag = false
-                        break
+                    #If cart reached the goal and no collision occured, then new_cart_position should be (-100,-100,-100)
+                    # if(cart_reached_goal_flag)
+                    #     #println("Goal reached")
+                    #     new_cart_position = (-100.0, -100.0, -100.0)
+                    #     observed_positions = location[ location(-25.0,-25.0) ]
+                    # end
+                #Cart is stationary
+                else
+                    #Check if the cart intersects with any static obstacle
+                    for obstacle in m.world.obstacles
+                        if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L,
+                                                                obstacle.x, obstacle.y,obstacle.r + m.obstacle_distance_threshold) )
+                            new_cart_position = (-100.0, -100.0, -100.0)
+                            collision_with_obstacle_flag = true
+                            new_human_states = human_state[]
+                            observed_positions = location[ location(-50.0,-50.0) ]
+                            # println("Collision with this obstacle " ,obstacle, " ", time_index )
+                            break
+                        end
                     end
                 end
-                #If cart reached the goal and no collision occured, then new_cart_position should be (-100,-100,-100)
-                # if(cart_reached_goal_flag)
-                #     #println("Goal reached")
-                #     new_cart_position = (-100.0, -100.0, -100.0)
-                #     observed_positions = location[ location(-25.0,-25.0) ]
-                # end
-            #Cart is stationary
-            else
-                #Don't do anything!
             end
         end
     end
@@ -435,49 +568,39 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
     d_near_threshold = 4.0
     #This bool is also used to check if all the states in the belief are terminal or not.
     first_execution_flag = true
-
+    nearest_prm_point = lookup_table_struct(-1, 0.0, 0.0, -1, 0.0, 0.0)
     for (s, w) in weighted_particles(b)
         if(s.cart.x == -100.0 && s.cart.y == -100.0)
             continue
         else
             if(first_execution_flag)
-                x_point =  floor(Int64,s.cart.x/ 1.0)+1
-                y_point =  floor(Int64,s.cart.y/ 1.0)+1
-                theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
+                x_point =  clamp(floor(Int64,s.cart.x/ 1.0)+1,1,100)
+                y_point =  clamp(floor(Int64,s.cart.y/ 1.0)+1,1,100)
+                # theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
                 # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
-                nearest_prm_point = m.lookup_table[x_point,y_point,theta_point]
-                required_orientation = get_heading_angle( nearest_prm_point[2], nearest_prm_point[3], s.cart.x, s.cart.y)
-                delta_angle = required_orientation - s.cart.theta
-                abs_delta_angle = abs(delta_angle)
-                if(abs_delta_angle<=pi)
-                    delta_angle = clamp(delta_angle, -pi/4, pi/4)
-                else
-                    if(delta_angle>=0.0)
-                        delta_angle = clamp(delta_angle-2*pi, -pi/4, pi/4)
-                    else
-                        delta_angle = clamp(delta_angle+2*pi, -pi/4, pi/4)
-                    end
-                end
+                nearest_prm_point = m.lookup_table[x_point,y_point]
                 first_execution_flag = false
+                # println("Hey, first_execution_flag is ", first_execution_flag)
+            end
+            dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
+            for human in s.pedestrians
+                euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
+                if(euclidean_distance < dist_to_closest_human)
+                    dist_to_closest_human = euclidean_distance
+                end
+                if(dist_to_closest_human < d_near_threshold)
+                    # println("Too close ", dist_to_closest_human )
+                    return POMDP_2D_action_type(-10.0,-1.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+                                                nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
+                end
+            end
+            if(dist_to_closest_human > d_far_threshold)
+                chosen_acceleration = 1.0
             else
-                dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
-                for human in s.pedestrians
-                    euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
-                    if(euclidean_distance < dist_to_closest_human)
-                        dist_to_closest_human = euclidean_distance
-                    end
-                    if(dist_to_closest_human < d_near_threshold)
-                        return (delta_angle,-1.0)
-                    end
-                end
-                if(dist_to_closest_human > d_far_threshold)
-                    chosen_acceleration = 1.0
-                else
-                    chosen_acceleration = 0.0
-                end
-                if(chosen_acceleration < speed_change_to_be_returned)
-                    speed_change_to_be_returned = chosen_acceleration
-                end
+                chosen_acceleration = 0.0
+            end
+            if(chosen_acceleration < speed_change_to_be_returned)
+                speed_change_to_be_returned = chosen_acceleration
             end
         end
     end
@@ -485,19 +608,21 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
     #This condition is true only when all the states in the belief are terminal. In that case, just return (0.0,0.0)
     if(first_execution_flag == true)
         #@show(0.0,0.0)
-        return (0.0,0.0)
+        return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+                                    nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
     end
 
     #This means all humans are away and you can accelerate.
     if(speed_change_to_be_returned == 1.0)
-        #@show(0.0,speed_change_to_be_returned)
-        return (delta_angle,speed_change_to_be_returned)
+        return POMDP_2D_action_type(-10.0,speed_change_to_be_returned,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+                                    nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
     end
 
     #If code has reached this point, then the best action is to maintain your current speed.
     #We have already found the best steering angle to take.
     #@show(best_delta_angle,0.0)
-    return (delta_angle,0.0)
+    return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+                                nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
 end
 
 function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)
@@ -544,7 +669,7 @@ end
 
 function debug_golfcart_upper_bound_2D_action_space(m,b)
 
-    lbound(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(m, b)),max_depth=100),m,b)
+    lower = lbound(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(m, b)),max_depth=100),m,b)
     #@show(lower)
 
     value_sum = 0.0
@@ -563,7 +688,8 @@ function debug_golfcart_upper_bound_2D_action_space(m,b)
     #@show(value_sum)
     u = (value_sum)/weight_sum(b)
     if lower > u
-        push!(bad, (lower,u,b))
+
+        push!(bad, (lower,u,b,m))
         @show("IN DEBUG",lower,u)
     end
     return u
