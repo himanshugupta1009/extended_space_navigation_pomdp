@@ -14,12 +14,20 @@ function solve_eikonal_equation_on_given_map(k, dx, source)
 
     modified_source = CartesianIndex(source[1]+1,source[2]+1)
     (t, ordering) = fefmm(bk,dx,modified_source)
+    for i in 1:size(t)[1]
+        for j in 1:size(t)[2]
+            if( t[i,j] == Inf )
+                t[i,j] = 10^6
+            end
+        end
+    end
     return t
 end
 
 function calculate_gradients(padded_time_matrix)
 
-    x_kernel = [ [-1, -1 ,-1] [ 0, 0, 0] [1, 1, 1] ]
+    x_kernel = [ [1, 1, 1] [ 0, 0, 0] [-1, -1 ,-1] ]
+    #x_kernel = x_kernel[1:end,end:-1:1]
     y_kernel = [ [ 1, 0, -1] [1 ,0, -1] [1, 0, -1] ]
 
     size_pm = size(padded_time_matrix)
@@ -30,7 +38,15 @@ function calculate_gradients(padded_time_matrix)
             grad_x = dot(x_kernel, padded_time_matrix[i-1:i+1,j-1:j+1])
             grad_y = dot(y_kernel, padded_time_matrix[i-1:i+1,j-1:j+1])
             mod_grad = sqrt( (grad_x)^2 + (grad_y)^2 )
-            alpha = atan(grad_y/grad_x)
+            if(grad_x>=0.0 && grad_y>=0.0)
+                alpha = atan(grad_y/grad_x)
+            elseif(grad_x<=0.0 && grad_y>=0.0)
+                alpha = atan(grad_y/grad_x) + pi
+            elseif(grad_x<=0.0 && grad_y<=0.0)
+                alpha = atan(grad_y/grad_x) + pi
+            elseif(grad_x>=0.0 && grad_y<=0.0)
+                alpha = atan(grad_y/grad_x) + (2*pi)
+            end
             grad_info_matrix[i-1,j-1] = gradient_info_struct(grad_x,grad_y,mod_grad,alpha)
         end
     end
@@ -50,7 +66,7 @@ function get_env_matrix_from_t_matrix(fmm_matrix)
     return env_fmm_matrix
 end
 
-function find_path_from_given_point(x,y,dx,dy,goal_x,goal_y,grad_info_matrix)
+function find_path_from_given_point(x,y,dx,dy,goal_x,goal_y,grad_info_matrix,debug_flag=false)
 
     curr_x = x
     curr_y = y
@@ -58,25 +74,32 @@ function find_path_from_given_point(x,y,dx,dy,goal_x,goal_y,grad_info_matrix)
     path_y = Float64[curr_y]
     grad_mat_size = size(grad_info_matrix)
     println("\nCart's position is " ,curr_x," ",curr_y)
-    while( !is_within_range_check_with_points(curr_x,curr_y,goal_x,goal_y,1.0) )
-        env_x_index = convert(Int,floor(curr_x/dx))
-        env_y_index = convert(Int,floor(curr_y/dy))
-        mat_hor_index = grad_mat_size[1] - env_y_index + 1
-        mat_ver_index = env_x_index
-        println("Matrix indices are : ", mat_hor_index, " ", mat_ver_index)
-        grad_info = grad_info_matrix[mat_hor_index,mat_ver_index]
-        println("Gradient's direction is : ", grad_info.alpha*180/pi)
-        println("Gradient's magnitude is : ", grad_info.mod_grad)
-        mag = grad_info.mod_grad
-        #mag = 0.1
-        new_x = curr_x + mag*cos(grad_info.alpha)
-        new_y = curr_y + mag*sin(grad_info.alpha)
-        println("\nCart's position is " ,new_x," ",new_y)
-        curr_x, curr_y = new_x,new_y
-        push!(path_x,curr_x)
-        push!(path_y,curr_y)
+    try
+        while( !is_within_range_check_with_points(curr_x,curr_y,goal_x,goal_y,1.0) )
+            env_x_index = convert(Int,floor(curr_x/dx))
+            env_y_index = convert(Int,floor(curr_y/dy))
+            mat_ver_index = grad_mat_size[1] - env_y_index
+            mat_hor_index = env_x_index + 1
+            println("Matrix indices are : ", mat_ver_index, " ", mat_hor_index)
+            grad_info = grad_info_matrix[mat_ver_index, mat_hor_index]
+            println("Gradient's direction is : ", grad_info.alpha*180/pi)
+            println("Gradient's magnitude is : ", grad_info.mod_grad)
+            # mag = (grad_info.mod_grad)
+            mag = clamp(grad_info.mod_grad,0,0.1)
+            #mag = 0.1
+            new_x = curr_x + mag*cos(-grad_info.alpha)
+            new_y = curr_y + mag*sin(-grad_info.alpha)
+            println("\nCart's position is " ,new_x," ",new_y)
+            curr_x, curr_y = new_x,new_y
+            push!(path_x,curr_x)
+            push!(path_y,curr_y)
+        end
+        return path_x,path_y
+    catch e
+        println("An error was encountered")
+        #println(e)
+        return path_x,path_y
     end
-    return path_x,path_y
 end
 
 function display_fmm_old(grad_info_matrix)
@@ -94,7 +117,6 @@ function display_fmm_old(grad_info_matrix)
    end
    display(p)
 end
-
 
 function display_fmm(given_matrix)
     p = plot([0.0],[0.0],legend=false,grid=true)
@@ -134,7 +156,7 @@ function find_path_from_given_point_old(x,y,dx,dy,grad_info_matrix)
     return path_x,path_y
 end
 
-function check_if_grid_intersects_with_circular_obstacle(blc_x,blc_y,trc_x,trc_y,obstacle, obstacle_padding)
+function check_if_grid_intersects_with_circular_obstacle_using_corner_points(blc_x,blc_y,trc_x,trc_y,obstacle, obstacle_padding)
      nearest_point_x = max(blc_x, min(obstacle.x,trc_x))
      nearest_point_y = max(blc_y, min(obstacle.y,trc_y))
 
@@ -146,7 +168,7 @@ function check_if_grid_intersects_with_circular_obstacle(blc_x,blc_y,trc_x,trc_y
      end
 end
 
-function lala(grid_center_x, grid_center_y, grid_width_x, grid_width_y, obstacle,obstacle_padding)
+function check_if_grid_intersects_with_circular_obstacle_using_grid_center(grid_center_x, grid_center_y, grid_width_x, grid_width_y, obstacle,obstacle_padding)
     abs_dist_x = abs(obstacle.x - grid_center_x)
     abs_dist_y = abs(obstacle.y - grid_center_y)
 
@@ -173,7 +195,6 @@ function lala(grid_center_x, grid_center_y, grid_width_x, grid_width_y, obstacle
     end
 end
 
-
 function generate_slowness_map_from_given_environment(world, obstacle_padding=2.0)
     #=
     Note - In the environment, left bottom corner is (0,0) and the right top corner is (100,100).
@@ -184,36 +205,113 @@ function generate_slowness_map_from_given_environment(world, obstacle_padding=2.
 
     horizontal_discretization_for_slowness_map = 0.1
     vertical_discretization_for_slowness_map = 0.1
-    vertical_grid_size = (world.breadth/vertical_discretization_for_slowness_map)       #number of rows
-    horizontal_grid_size = (world.length/horizontal_discretization_for_slowness_map     #number of columns
+    vertical_grid_size = convert(Int,(world.breadth/vertical_discretization_for_slowness_map)) + 1          #number of rows
+    horizontal_grid_size = convert(Int,(world.length/horizontal_discretization_for_slowness_map)) + 1       #number of columns
 
     #Generate a slowness map assuming there are no static obstacles.
     k = ones(vertical_grid_size, horizontal_grid_size)
-
+    slowness_distance_threshold_around_obstacles = 0.0
     #Put static obstacles on the slowness map
     for i in vertical_grid_size:-1:1
         for j in 1:horizontal_grid_size
-            point_corresponding_to_bottom_left_corner_of_the_grid_in_env_x = (j-1)*horizontal_discretization_for_slowness_map
-            point_corresponding_to_bottom_left_corner_of_the_grid_in_env_y = (vertical_grid_size - i)*vertical_discretization_for_slowness_map
-            point_corresponding_to_top_right_corner_of_the_grid_in_env_x = j*horizontal_discretization_for_slowness_map
-            point_corresponding_to_top_right_corner_of_the_grid_in_env_y = (vertical_grid_size - i+1)*vertical_discretization_for_slowness_map
+            # point_corresponding_to_bottom_left_corner_of_the_grid_in_env_x = (j-1)*horizontal_discretization_for_slowness_map
+            # point_corresponding_to_bottom_left_corner_of_the_grid_in_env_y = (vertical_grid_size - i)*vertical_discretization_for_slowness_map
+            # point_corresponding_to_top_right_corner_of_the_grid_in_env_x = j*horizontal_discretization_for_slowness_map
+            # point_corresponding_to_top_right_corner_of_the_grid_in_env_y = (vertical_grid_size - i+1)*vertical_discretization_for_slowness_map
+            grid_center_x = horizontal_discretization_for_slowness_map * ( ( (j-1) + j ) / 2 )
+            grid_center_y = vertical_discretization_for_slowness_map * (  ( (vertical_grid_size - i) + (vertical_grid_size - i + 1) ) / 2 )
             collision_with_obstacle_flag = false
+            slow_speed_flag = false
             for obstacle in world.obstacles
-                collision_with_obstacle_flag = check_if_grid_intersects_with_circular_obstacle(obstacle, obstacle_padding)
+                slow_speed_flag = check_if_grid_intersects_with_circular_obstacle_using_grid_center(grid_center_x, grid_center_y,
+                                                    horizontal_discretization_for_slowness_map, vertical_discretization_for_slowness_map,
+                                                    obstacle, obstacle_padding+world.cart.L+slowness_distance_threshold_around_obstacles)
+                collision_with_obstacle_flag = check_if_grid_intersects_with_circular_obstacle_using_grid_center(grid_center_x, grid_center_y,
+                                                    horizontal_discretization_for_slowness_map, vertical_discretization_for_slowness_map,
+                                                    obstacle, obstacle_padding+world.cart.L)
+                if(slow_speed_flag==true)
+                    k[i,j] = 0.5
+                end
                 if(collision_with_obstacle_flag==true)
                     k[i,j] = Inf
                     break
                 end
             end
-            #Check if this cell collides with any static obstacle in the environment
-            #If yes, set k[i,j] = Inf , else continue
-
-    for obstacle in world.obstacles
-
-
-
-
+        end
+    end
+    return k
 end
+
+function convert_given_env_point_to_matrix_indices(x_env,y_env,env_length,env_breadth,dx=0.1,dy=0.1)
+    matrix_index_j = convert(Int, floor(x_env/dx))
+    num_grids_in_y_direction = convert(Int, env.breadth/dy)
+    matrix_index_i = num_grids_in_y_direction - convert(Int, floor(y_env/dy))
+    return matrix_index_i,matrix_index_j
+end
+
+function convert_given_matrix_index_to_env_point(matrix_index_i,matrix_index_j,env_length,env_breadth,dx=0.1,dy=0.1)
+    x_env = matrix_index_j*dx
+    num_grids_in_y_direction = convert(Int, env.breadth/dy)
+    y_env = (num_grids_in_y_direction - matrix_index_i)*dy
+    return x_env,y_env
+end
+
+function find_path_hack(x,y,dx,dy,goal_x,goal_y,t)
+    curr_x = x
+    curr_y = y
+    mat_index_x,mat_index_y = convert_given_env_point_to_matrix_indices(curr_x,curr_y,100,100)
+    #mat_index_x,mat_index_y = mat_index_x+1,mat_index_y+1
+    path_x = Float64[mat_index_x]
+    path_y = Float64[mat_index_y]
+    # new_t = t[2:end-1,2:end-1]
+    # println("\nCart's position is " ,curr_x," ",curr_y)
+    try
+        while( !is_within_range_check_with_points(curr_x,curr_y,goal_x,goal_y,1.0) )
+            println("Time Matrix indices are : ", mat_index_x, " ", mat_index_y)
+            # neighbourhood = t[mat_index_x:mat_index_x+2, mat_index_y:mat_index_y+2]
+            curr_min = Inf
+            min_i = 0
+            min_j = 0
+            for i in mat_index_x-1:mat_index_x+1
+                for j in mat_index_y-1:mat_index_y+1
+                    if(t[i,j] < curr_min)
+                        curr_min = t[i,j]
+                        min_i = i
+                        min_j = j
+                    end
+                end
+            end
+            # println("Gradient's direction is : ", grad_info.alpha*180/pi)
+            # println("Gradient's magnitude is : ", grad_info.mod_grad)
+            # mag = grad_info.mod_grad
+            #mag = 0.1
+            new_x, new_y = convert_given_matrix_index_to_env_point(min_i-1,min_j-1,100,100)
+            println("\nCart's position is " ,new_x," ",new_y)
+            curr_x, curr_y = new_x,new_y
+            # mat_index_x,mat_index_y = convert_given_env_point_to_matrix_indices(curr_x,curr_y,100,100)
+            # mat_index_x,mat_index_y = mat_index_x+1,mat_index_y+1
+            mat_index_x,mat_index_y = min_i,min_j
+            push!(path_x , mat_index_x)
+            push!(path_y , mat_index_y)
+        end
+    catch e
+        println("Encountered an error")
+        #println(e)
+        return path_x,path_y
+    end
+    return path_x,path_y
+end
+
+
+#=
+k = generate_slowness_map_from_given_environment(env,2.0)
+dx = [0.1,0.1]
+source = CartesianIndex(250,1000)
+t = solve_eikonal_equation_on_given_map(k, dx, source)
+g = calculate_gradients(t)
+display_fmm_path_from_given_vertex(env,31.6,75,g)
+=#
+
 #=
 p = plot([0.0],[0.0],legend=false,grid=true)
 xi = 85
@@ -292,6 +390,7 @@ g = calculate_gradients(t)
 a,b = find_path_from_given_point(40,30,0.1,0.1,100,75,g)
 =#
 
+#=
 for i in 1:10
    for j in 1:10
        print(e[i,j].alpha*180/pi, "\t")
@@ -314,4 +413,16 @@ for i in 1:10
    println()
 end
 
-function
+=#
+
+#=
+a,b = find_path_hack(70,30,0.1,0.1,100,75,t[2:end-1, 2:end-1])
+x_points = []
+y_points = []
+for i in 1:length(a)
+   x,y = convert_given_matrix_index_to_env_point(a[i],b[i],100,100)
+   push!(x_points,x)
+   push!(y_points,y)
+end
+display_fmm_path_from_given_point(env,x_points,y_points,g)
+=#
