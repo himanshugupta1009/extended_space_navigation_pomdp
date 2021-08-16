@@ -111,3 +111,9 @@ function lala()
     end
     println(s)
 end
+
+struct temp_check
+    num::Int64
+    x::Float64
+    y::Float64
+end

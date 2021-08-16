@@ -77,7 +77,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
 
-    try
+    # try
         #Start Simulating for t>1
         while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
             #display_env(env_right_now)
@@ -166,14 +166,14 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
             end
             close(io)
         end
-    catch e
+    # catch e
         println("\n Things failed during the simulation. \n The error message is : \n ")
         println(e)
         experiment_success_flag = false
         return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
             all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
             time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
-    end
+    # end
 
     io = open(filename,"a")
     if(cart_reached_goal_flag == true)
