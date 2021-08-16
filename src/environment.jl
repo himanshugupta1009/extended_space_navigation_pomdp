@@ -192,11 +192,13 @@ function generate_environment_L_shaped_corridor(number_of_humans,user_defined_rn
     cart_goal = location(world_length,75.0)
     all_goals_list = [g1,g2,g3,g4]
 
-    o1 = obstacle_location(50.0,50.0,20.0)
-    o2 = obstacle_location(50.0,20.0,20.0)
-    o3 = obstacle_location(80.0,50.0,20.0)
-    o4 = obstacle_location(80.0,20.0,20.0)
-    all_obstacle_list = [o1,o2,o3,o4]
+    o1 = obstacle_location(65.0,35.0,35.0)
+    all_obstacle_list = [o1]
+    # o1 = obstacle_location(50.0,50.0,20.0)
+    # o2 = obstacle_location(50.0,20.0,20.0)
+    # o3 = obstacle_location(80.0,50.0,20.0)
+    # o4 = obstacle_location(80.0,20.0,20.0)
+    # all_obstacle_list = [o1,o2,o3,o4]
 
     golfcart = cart_state(1.0,25.0,0.0,0.0,1.0,cart_goal)
     initial_cart_lidar_data = Array{human_state,1}()
@@ -367,7 +369,6 @@ function display_env(env::experiment_environment, time_step=nothing, gif_env_num
     display(p)
 end
 
-
 function display_prm_path_from_given_vertex(env::experiment_environment, prm, vertex_num)
 
     #Plot Boundaries
@@ -418,4 +419,49 @@ function display_prm_path_from_given_vertex(env::experiment_environment, prm, ve
     annotate!(env.cart.goal.x, env.cart.goal.y, text("G", :purple, :right, 20))
     plot!(size=(plot_size,plot_size))
     display(p)
+end
+
+function display_fmm_path_from_given_vertex(env::experiment_environment, given_x_point, given_y_point, gradient_information_matrix, dx=0.1, dy=0.1)
+
+    #Plot Boundaries
+    p = plot([0.0],[0.0],legend=false,grid=false)
+    plot!([env.length], [env.breadth],legend=false)
+
+    #Plot Humans in the cart lidar data
+    for i in 1: length(env.cart_lidar_data)
+        scatter!([env.cart_lidar_data[i].x], [env.cart_lidar_data[i].y],color="green",msize=0.5*plot_size/env.length)
+    end
+
+    #Plot humans in complete cart_lidar_data
+    for i in 1: length(env.complete_cart_lidar_data)
+        in_lidar_data_flag = false
+        for green_human in env.cart_lidar_data
+            if(env.complete_cart_lidar_data[i].id == green_human.id)
+                in_lidar_data_flag = true
+                break
+            end
+        end
+        if(!in_lidar_data_flag)
+            scatter!([env.complete_cart_lidar_data[i].x], [env.complete_cart_lidar_data[i].y],color="red",msize=0.5*plot_size/env.length)
+        end
+    end
+
+    #Plot Obstacles
+    for i in 1: length(env.obstacles)
+        scatter!([env.obstacles[i].x], [env.obstacles[i].y],color="black",shape=:circle,msize=plot_size*env.obstacles[i].r/env.length)
+    end
+
+    #Plot Golfcart
+    scatter!([env.cart.x], [env.cart.y], shape=:circle, color="blue", msize= 0.3*plot_size*cart_size/env.length)
+    quiver!([env.cart.x],[env.cart.y],quiver=([cos(env.cart.theta)],[sin(env.cart.theta)]), color="blue")
+
+    #Generate fmm path
+    x_points,y_points = @time find_path_from_given_point(given_x_point,given_y_point,dx,dy,env.cart.goal.x,env.cart.goal.y,gradient_information_matrix)
+    plot!(x_points,y_points)
+
+    annotate!(env.cart_start_location.x, env.cart_start_location.y, text("S", :purple, :right, 20))
+    annotate!(env.cart.goal.x, env.cart.goal.y, text("G", :purple, :right, 20))
+    plot!(size=(plot_size,plot_size))
+    display(p)
+    return x_points,y_points
 end
