@@ -17,6 +17,9 @@ using DifferentialEquations
 struct POMDP_state_2D_action_space
     cart:: cart_state
     pedestrians::Array{human_state,1}
+    next_prm_vertex_num::Int64
+    next_prm_vertex_x::Float64
+    next_prm_vertex_y::Float64
 end
 
 #Define POMDP Action Struct
@@ -72,9 +75,8 @@ function Base.rand(rng::AbstractRNG, state_distribution::POMDP_2D_action_space_s
                             state_distribution.world.cart_lidar_data[i].id)
         push!(pedestrians, new_human)
     end
-    return POMDP_state_2D_action_space(state_distribution.world.cart,pedestrians)
+    return POMDP_state_2D_action_space(state_distribution.world.cart,pedestrians,-1,0.0,0.0)
 end
-
 
 
 #************************************************************************************************
@@ -210,13 +212,15 @@ function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_ac
     if(new_cart_speed == 0.0)
         cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
         cart_path = repeat(cart_path, num_time_intervals+1)
+        first_vertex_crossed_flag = false
     else
         cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
         # cart_path = Tuple{Float64,Float64,Float64}[]
         # push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
         # arc_length = new_cart_speed
         dist_to_first_prm_vertex::Float64 = sqrt( (first_prm_vertex_x-current_x)^2 + (first_prm_vertex_y-current_y)^2 )
-        if(dist_to_first_prm_vertex >= new_cart_speed)
+        if(dist_to_first_prm_vertex > new_cart_speed)
+            first_vertex_crossed_flag = false
             required_orientation::Float64 = get_heading_angle( first_prm_vertex_x, first_prm_vertex_y, current_x, current_y)
             delta_angle::Float64 = required_orientation - current_theta
             for i in (1:num_time_intervals)
@@ -230,10 +234,11 @@ function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_ac
                     for j in i+1:num_time_intervals
                         push!(cart_path,(current_x, current_y, current_theta))
                     end
-                    return cart_path
+                    return cart_path,first_vertex_crossed_flag
                 end
             end
         else
+            first_vertex_crossed_flag = true
             dist_in_each_interval = new_cart_speed*(1/num_time_intervals)
             interval_num_where_switch_will_happen = convert(Int,floor(dist_to_first_prm_vertex/dist_in_each_interval)+1)
             required_orientation = get_heading_angle( first_prm_vertex_x, first_prm_vertex_y, current_x, current_y)
@@ -250,7 +255,7 @@ function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_ac
                     for j in i+1:num_time_intervals
                         push!(cart_path,(current_x, current_y, current_theta))
                     end
-                    return cart_path
+                    return cart_path,first_vertex_crossed_flag
                 end
             end
             #Simulate for i=interval_num_where_switch_will_happen
@@ -267,7 +272,7 @@ function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_ac
                 for j in interval_num_where_switch_will_happen+1:num_time_intervals
                     push!(cart_path,(current_x, current_y, current_theta))
                 end
-                return cart_path
+                return cart_path,first_vertex_crossed_flag
             end
             #Simulate for i=(interval_num_where_switch_will_happen+1) to i=num_time_intervals
             for i in (interval_num_where_switch_will_happen+1:num_time_intervals)
@@ -281,13 +286,13 @@ function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_ac
                     for j in i+1:num_time_intervals
                         push!(cart_path,(current_x, current_y, current_theta))
                     end
-                    return cart_path
+                    return cart_path,first_vertex_crossed_flag
                 end
             end
         end
     end
     #@show(current_cart_position,steering_angle, new_cart_speed, cart_path)
-    return cart_path
+    return cart_path,first_vertex_crossed_flag
 end
 # @code_warntype update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0,2.0, 3.0,5.0, 5, env.length, env.breadth, 1.0, 10)
 # @btime update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0,2.0, 3.0,5.0, 5, env.length, env.breadth, 1.0, 10)
@@ -386,13 +391,20 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         end
         num_time_intervals = 2
         new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
-        if(a.delta_angle == -10.0)
-            cart_path = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(s.cart, a.first_prm_vertex_x, a.first_prm_vertex_y, a.second_prm_vertex_x,
-                                                                                    a.second_prm_vertex_y, new_cart_velocity,m.world.length,m.world.breadth,
-                                                                                    m.cart_goal_reached_distance_threshold, num_time_intervals)
+        first_vertex_crossed_flag = false
+        if(s.next_prm_vertex_num == -1)
+            if(a.delta_angle == -10.0)
+                cart_path,first_vertex_crossed_flag = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(s.cart, a.first_prm_vertex_x,
+                                                                                a.first_prm_vertex_y, a.second_prm_vertex_x,a.second_prm_vertex_y, new_cart_velocity,
+                                                                                m.world.length,m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
+            else
+                cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a.delta_angle, new_cart_velocity, m.world.length,
+                                                                                                m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
+            end
         else
-            cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a.delta_angle, new_cart_velocity, m.world.length,
-                                                                                            m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
+            cart_path,first_vertex_crossed_flag = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(s.cart, a.first_prm_vertex_x,
+                                                                            a.first_prm_vertex_y, a.second_prm_vertex_x,a.second_prm_vertex_y, new_cart_velocity,
+                                                                            m.world.length,m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
         end
         new_cart_position = cart_path[end]
         #If cart goes out of bounds by taking this action
@@ -483,7 +495,11 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     cart_new_state = cart_state(new_cart_position[1], new_cart_position[2], new_cart_position[3], new_cart_velocity, s.cart.L, s.cart.goal)
 
     # Next POMDP State
-    sp = POMDP_state_2D_action_space(cart_new_state, new_human_states)
+    if(first_vertex_crossed_flag)
+        sp = POMDP_state_2D_action_space(cart_new_state, new_human_states, a.second_prm_vertex_num, a.second_prm_vertex_x,a.second_prm_vertex_y)
+    else
+        sp = POMDP_state_2D_action_space(cart_new_state, new_human_states, a.first_prm_vertex_num, s.first_prm_vertex_x, a.first_prm_vertex_y)
+    end
     # Generated Observation
     o = observed_positions
 
@@ -568,19 +584,31 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
     d_near_threshold = 4.0
     #This bool is also used to check if all the states in the belief are terminal or not.
     first_execution_flag = true
-    nearest_prm_point = lookup_table_struct(-1, 0.0, 0.0, -1, 0.0, 0.0)
+    nearest_prm_point = lookup_table_struct(-1,0.0,0.0,-1,0.0,0.0)
     for (s, w) in weighted_particles(b)
         if(s.cart.x == -100.0 && s.cart.y == -100.0)
             continue
         else
             if(first_execution_flag)
-                x_point =  clamp(floor(Int64,s.cart.x/ 1.0)+1,1,100)
-                y_point =  clamp(floor(Int64,s.cart.y/ 1.0)+1,1,100)
-                # theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
-                # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
-                nearest_prm_point = m.lookup_table[x_point,y_point]
-                first_execution_flag = false
-                # println("Hey, first_execution_flag is ", first_execution_flag)
+                if(s.next_prm_vertex_num == -1)
+                    x_point =  clamp(floor(Int64,s.cart.x/ 1.0)+1,1,100)
+                    y_point =  clamp(floor(Int64,s.cart.y/ 1.0)+1,1,100)
+                    # theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
+                    # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
+                    nearest_prm_point = m.lookup_table[x_point,y_point]
+                    first_execution_flag = false
+                    # println("Hey, first_execution_flag is ", first_execution_flag)
+                else
+                    if(s.next_prm_vertex_num == 2)
+                        nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
+                                                                    s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y)
+                    else
+                        next_to_next_vertex = m.prm_details[s.next_prm_vertex_num].path_to_goal[2]
+                        nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
+                                                                next_to_next_vertex.num,next_to_next_vertex.x, next_to_next_vertex.y)
+                    end
+                    first_execution_flag = false
+                end
             end
             dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
             for human in s.pedestrians

@@ -14,6 +14,19 @@ struct lookup_table_struct
     next_prm_vertex_y::Float64
 end
 
+struct prm_path_info_struct
+    vertex_num::Int64
+    x::Float64
+    y::Float64
+end
+
+struct prm_info_struct
+    x::Float64
+    y::Float64
+    dist_to_goal::Float64
+    path_to_goal::Array{prm_path_info_struct,1}
+end
+
 
 function get_distance_between_two_prm_vertices(prm, first_vertex_index, second_vertex_index)
     euclidean_distance = (get_prop(prm,first_vertex_index,:x) - get_prop(prm,second_vertex_index,:x))^2
@@ -140,10 +153,10 @@ function generate_prm_edges(world, graph, num_nearest_nebhrs)
     # gplot(env.prm)
     for i in 1:nv(graph)
         dsp = dijkstra_shortest_paths(graph, i)
-        path_to_goal = Int64[]
+        path_to_goal = prm_path_info_struct[]
         curr_par = 2
         while(curr_par!=0)
-            push!(path_to_goal,curr_par)
+            push!(path_to_goal,prm_path_info_struct(curr_par,get_prop(graph,curr_par,:x),get_prop(graph,curr_par,:y)))
             curr_par = dsp.parents[curr_par]
         end
         reverse!(path_to_goal)
@@ -364,5 +377,13 @@ display_env(env,nothing,nothing,graph)
 for i in 1:nv(graph)
    display_prm_path_from_given_vertex(env,graph,i)
    savefig("./prm_paths/from_vertex_"*string(i)*".png")
+end
+=#
+
+#=
+prm_info = Array{prm_info_struct,1}(undef, nv(graph))
+for i in 1:nv(graph)
+   st = prm_info_struct(get_prop(graph,i,:x) , get_prop(graph,i,:y), get_prop(graph,i,:dist_to_goal), get_prop(graph,i,:path_to_goal))
+   prm_info[i] = st
 end
 =#
