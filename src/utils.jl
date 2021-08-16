@@ -153,7 +153,7 @@ end
 function get_heading_angle(human_x, human_y, cart_x, cart_y)
 
     # NOTE: Angle returned by this function is always wrapped between 0 and 2pi
-     
+    
     #First Quadrant
     if(human_x >= cart_x && human_y >= cart_y)
         if(human_x == cart_x)
