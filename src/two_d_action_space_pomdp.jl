@@ -26,14 +26,16 @@ end
 struct POMDP_2D_action_type
     delta_angle::Float64
     delta_velocity::Float64
+    first_prm_vertex_num::Int64
     first_prm_vertex_x::Float64
     first_prm_vertex_y::Float64
+    second_prm_vertex_num::Int64
     second_prm_vertex_x::Float64
     second_prm_vertex_y::Float64
 end
 
 #POMDP struct
-mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,POMDP_2D_action_type,Array{location,1}}
+struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,POMDP_2D_action_type,Array{location,1}}
     discount_factor::Float64
     pedestrian_distance_threshold::Float64
     pedestrian_collision_penalty::Float64
@@ -44,6 +46,7 @@ mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_acti
     goal_reward::Float64
     max_cart_speed::Float64
     world::experiment_environment
+    prm_details::Array{prm_info_struct,1}
     lookup_table::Array{lookup_table_struct,2}
 end
 
@@ -325,7 +328,7 @@ end
 function goal_reward_pomdp_planning_2D_action_space(s, distance_threshold, goal_reached_flag, goal_reward)
     total_reward = 0.0
     if(goal_reached_flag)
-        println("Wow, goal reached")
+        #println("Wow, goal reached")
         total_reward = goal_reward
     else
         euclidean_distance = ((s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2)^0.5
@@ -365,7 +368,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     immediate_stop_flag = false
     #Length of one time step
     one_time_step = 1.0
-
+    first_vertex_crossed_flag = false
     new_human_states = human_state[]
     observed_positions = location[]
 
@@ -391,7 +394,6 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         end
         num_time_intervals = 2
         new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
-        first_vertex_crossed_flag = false
         if(s.next_prm_vertex_num == -1)
             if(a.delta_angle == -10.0)
                 cart_path,first_vertex_crossed_flag = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(s.cart, a.first_prm_vertex_x,
@@ -498,7 +500,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     if(first_vertex_crossed_flag)
         sp = POMDP_state_2D_action_space(cart_new_state, new_human_states, a.second_prm_vertex_num, a.second_prm_vertex_x,a.second_prm_vertex_y)
     else
-        sp = POMDP_state_2D_action_space(cart_new_state, new_human_states, a.first_prm_vertex_num, s.first_prm_vertex_x, a.first_prm_vertex_y)
+        sp = POMDP_state_2D_action_space(cart_new_state, new_human_states, s.next_prm_vertex_num, s.next_prm_vertex_x, s.next_prm_vertex_y)
     end
     # Generated Observation
     o = observed_positions
@@ -605,7 +607,7 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
                     else
                         next_to_next_vertex = m.prm_details[s.next_prm_vertex_num].path_to_goal[2]
                         nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
-                                                                next_to_next_vertex.num,next_to_next_vertex.x, next_to_next_vertex.y)
+                                                                next_to_next_vertex.vertex_num,next_to_next_vertex.x, next_to_next_vertex.y)
                     end
                     first_execution_flag = false
                 end
@@ -618,7 +620,8 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
                 end
                 if(dist_to_closest_human < d_near_threshold)
                     # println("Too close ", dist_to_closest_human )
-                    return POMDP_2D_action_type(-10.0,-1.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+                    return POMDP_2D_action_type(-10.0,-1.0,nearest_prm_point.closest_prm_vertex_num,nearest_prm_point.closest_prm_vertex_x,
+                                                nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_num,
                                                 nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
                 end
             end
@@ -636,20 +639,23 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
     #This condition is true only when all the states in the belief are terminal. In that case, just return (0.0,0.0)
     if(first_execution_flag == true)
         #@show(0.0,0.0)
-        return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+        return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_num,nearest_prm_point.closest_prm_vertex_x,
+                                    nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_num,
                                     nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
     end
 
     #This means all humans are away and you can accelerate.
     if(speed_change_to_be_returned == 1.0)
-        return POMDP_2D_action_type(-10.0,speed_change_to_be_returned,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+        return POMDP_2D_action_type(-10.0,speed_change_to_be_returned,nearest_prm_point.closest_prm_vertex_num,nearest_prm_point.closest_prm_vertex_x,
+                                    nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_num,
                                     nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
     end
 
     #If code has reached this point, then the best action is to maintain your current speed.
     #We have already found the best steering angle to take.
     #@show(best_delta_angle,0.0)
-    return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
+    return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_num,nearest_prm_point.closest_prm_vertex_x,
+                                nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_num,
                                 nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
 end
 
