@@ -134,9 +134,9 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
 
     number_risks = 0
 
-    cart_path = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(env_right_now.cart, first_prm_vertex_x, first_prm_vertex_y,
-                                                        second_prm_vertex_x, second_prm_vertex_y, env_right_now.cart.v,
-                                                        env_right_now.length, env_right_now.breadth,1.0,10)
+    cart_path, first_vertex_crossed_flag = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(env_right_now.cart,
+                                                    first_prm_vertex_x, first_prm_vertex_y,second_prm_vertex_x, second_prm_vertex_y,
+                                                    env_right_now.cart.v,env_right_now.length, env_right_now.breadth,1.0,10)
     cart_path = cart_path[2:end]
     #Simulate for 0 to 0.5 seconds
     env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
