@@ -23,10 +23,7 @@ end
 struct POMDP_2D_action_type
     delta_angle::Float64
     delta_velocity::Float64
-    first_prm_vertex_x::Float64
-    first_prm_vertex_y::Float64
-    second_prm_vertex_x::Float64
-    second_prm_vertex_y::Float64
+    fmm_path_flag::Bool
 end
 
 #POMDP struct
@@ -41,7 +38,7 @@ mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_acti
     goal_reward::Float64
     max_cart_speed::Float64
     world::experiment_environment
-    lookup_table::Array{lookup_table_struct,2}
+    gradient_info_table::Array{gradient_info_struct,2}
 end
 
 #Function to check terminal state
@@ -203,94 +200,63 @@ end
 # @code_warntype update_cart_position_pomdp_planning_2D_action_space(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), pi/12, 5.0, env.length, env.breadth,1.0,10)
 # @btime update_cart_position_pomdp_planning_2D_action_space(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), pi/12, 5.0, env.length, env.breadth,1.0,10)
 
-function update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(current_cart, first_prm_vertex_x, first_prm_vertex_y, second_prm_vertex_x,
-                                                    second_prm_vertex_y, new_cart_speed, world_length, world_breadth,goal_distance_threshold, num_time_intervals = 10)
+function update_cart_position_pomdp_planning_2D_action_space_using_fmm_gradients(current_cart, new_cart_speed, world_length, world_breadth,
+                                                                                                gradient_info_table, dx, dy, num_time_intervals = 10)
 
     current_x, current_y, current_theta = current_cart.x, current_cart.y, current_cart.theta
     if(new_cart_speed == 0.0)
-        cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
-        cart_path = repeat(cart_path, num_time_intervals+1)
+        # cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
+        cart_path = repeat(Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ], num_time_intervals+1)
     else
         cart_path = Tuple{Float64,Float64,Float64}[ ( Float64(current_x), Float64(current_y), Float64(current_theta) ) ]
-        # cart_path = Tuple{Float64,Float64,Float64}[]
-        # push!(cart_path,(Float64(current_x), Float64(current_y), Float64(current_theta)))
-        # arc_length = new_cart_speed
-        dist_to_first_prm_vertex::Float64 = sqrt( (first_prm_vertex_x-current_x)^2 + (first_prm_vertex_y-current_y)^2 )
-        if(dist_to_first_prm_vertex >= new_cart_speed)
-            required_orientation::Float64 = get_heading_angle( first_prm_vertex_x, first_prm_vertex_y, current_x, current_y)
-            delta_angle::Float64 = required_orientation - current_theta
-            for i in (1:num_time_intervals)
-                new_theta = current_theta + (delta_angle * (1/num_time_intervals))
-                new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + new_cart_speed*cos(required_orientation)*(1/num_time_intervals)
-                new_y = current_y + new_cart_speed*sin(required_orientation)*(1/num_time_intervals)
-                push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
-                current_x, current_y,current_theta = new_x,new_y,new_theta
-                if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
-                    for j in i+1:num_time_intervals
-                        push!(cart_path,(current_x, current_y, current_theta))
-                    end
-                    return cart_path
-                end
+        grad_mat_size = size(gradient_info_table)
+        curr_path_length = 1
+        max_num_points = Int(new_cart_speed*10)
+        insertion_interval = max_num_points/num_time_intervals
+        num_insertions_made = 1
+        # println("HG")
+        while(curr_path_length<=max_num_points)
+            if(current_x == NaN || current_y == NaN)
+                println(current_cart)
             end
-        else
-            dist_in_each_interval = new_cart_speed*(1/num_time_intervals)
-            interval_num_where_switch_will_happen = convert(Int,floor(dist_to_first_prm_vertex/dist_in_each_interval)+1)
-            required_orientation = get_heading_angle( first_prm_vertex_x, first_prm_vertex_y, current_x, current_y)
-            delta_angle = required_orientation - current_theta
-            #Simulate for i=1 to i=(interval_num_where_switch_will_happen-1)
-            for i in (1:interval_num_where_switch_will_happen-1)
-                new_theta = current_theta + (delta_angle * (1/interval_num_where_switch_will_happen))
-                new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + dist_in_each_interval*cos(required_orientation)
-                new_y = current_y + dist_in_each_interval*sin(required_orientation)
-                push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
-                current_x, current_y,current_theta = new_x,new_y,new_theta
-                if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
-                    for j in i+1:num_time_intervals
-                        push!(cart_path,(current_x, current_y, current_theta))
-                    end
-                    return cart_path
+            env_x_index = convert(Int,floor(current_x/dx))
+            env_y_index = convert(Int,floor(current_y/dy))
+            # println(env_x_index , env_y_index)
+            mat_ver_index = grad_mat_size[1] - env_y_index
+            mat_hor_index = env_x_index + 1
+            grad_info = gradient_info_table[mat_ver_index, mat_hor_index]
+            mag = clamp(grad_info.mod_grad,0,0.1)
+            if(isnan(grad_info.alpha))
+                for j in num_insertions_made:num_time_intervals
+                    push!(cart_path,(current_x, current_y, current_theta))
                 end
+                return cart_path
+            else
+                new_x = current_x + mag*cos(-grad_info.alpha)
+                new_y = current_y + mag*sin(-grad_info.alpha)
+                current_x, current_y = new_x,new_y
             end
-            #Simulate for i=interval_num_where_switch_will_happen
-            remaining_distance_to_first_prm_vertex = sqrt( (first_prm_vertex_x-current_x)^2 + (first_prm_vertex_y-current_y)^2 )
-            distance_along_the_path_to_second_prm_path = dist_in_each_interval - remaining_distance_to_first_prm_vertex
-            new_required_orientation = get_heading_angle( second_prm_vertex_x, second_prm_vertex_y, first_prm_vertex_x, first_prm_vertex_y)
-            new_delta_angle = new_required_orientation - required_orientation
-            new_theta = required_orientation + (new_delta_angle * (1/(num_time_intervals - interval_num_where_switch_will_happen + 1)))
-            new_x = first_prm_vertex_x + distance_along_the_path_to_second_prm_path*cos(new_required_orientation)
-            new_y = first_prm_vertex_y + distance_along_the_path_to_second_prm_path*sin(new_required_orientation)
-            push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
-            current_x, current_y,current_theta = new_x,new_y,new_theta
+            if(mod(curr_path_length,insertion_interval) == 0.0)
+                # if(curr_path_length == max_num_points)
+                #     current_theta = get_heading_angle(current_x, current_y, current_cart.x, current_cart.y)
+                # end
+                push!(cart_path,(current_x, current_y, current_theta))
+                num_insertions_made += 1
+            end
             if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
-                for j in interval_num_where_switch_will_happen+1:num_time_intervals
+                # current_theta = get_heading_angle(current_x, current_y, current_cart.x, current_cart.y)
+                for j in num_insertions_made:num_time_intervals
                     push!(cart_path,(current_x, current_y, current_theta))
                 end
                 return cart_path
             end
-            #Simulate for i=(interval_num_where_switch_will_happen+1) to i=num_time_intervals
-            for i in (interval_num_where_switch_will_happen+1:num_time_intervals)
-                new_theta = current_theta + (new_delta_angle * (1/(num_time_intervals - interval_num_where_switch_will_happen + 1)))
-                new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + dist_in_each_interval*cos(new_required_orientation)
-                new_y = current_y + dist_in_each_interval*sin(new_required_orientation)
-                push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
-                current_x, current_y,current_theta = new_x,new_y,new_theta
-                if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
-                    for j in i+1:num_time_intervals
-                        push!(cart_path,(current_x, current_y, current_theta))
-                    end
-                    return cart_path
-                end
-            end
+            curr_path_length+=1
         end
     end
-    #@show(current_cart_position,steering_angle, new_cart_speed, cart_path)
     return cart_path
 end
-# @code_warntype update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0,2.0, 3.0,5.0, 5, env.length, env.breadth, 1.0, 10)
-# @btime update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(cart_state(1.0, 1.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0,2.0, 3.0,5.0, 5, env.length, env.breadth, 1.0, 10)
+# @benchmark update_cart_position_pomdp_planning_2D_action_space_using_fmm_gradients(cart_state(10.0, 25.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0, env.length, env.breadth, g,0.1,0.1, 2)
+# @code_warntype update_cart_position_pomdp_planning_2D_action_space_using_fmm_gradients(cart_state(10.0, 25.0, 0.0, 0.0, 1.0, location(100.0, 75.0)), 2.0, env.length, env.breadth, g,0.1,0.1, 2)
 
 
 #************************************************************************************************
@@ -320,7 +286,7 @@ end
 function goal_reward_pomdp_planning_2D_action_space(s, distance_threshold, goal_reached_flag, goal_reward)
     total_reward = 0.0
     if(goal_reached_flag)
-        println("Wow, goal reached")
+        # println("Wow, goal reached")
         total_reward = goal_reward
     else
         euclidean_distance = ((s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2)^0.5
@@ -376,20 +342,15 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         collision_with_obstacle_flag = true
         new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
         push!(observed_positions, location(-50.0,-50.0))
-    # elseif(a[2] == -10.0)
-    #     new_cart_position = (-100.0, -100.0, -100.0)
-    #     immediate_stop_flag = true
-    #     new_cart_velocity = clamp(s.cart.v + a[2], 0.0, m.max_cart_speed)
     else
         if(a.delta_velocity == -10.0)
             immediate_stop_flag = true
         end
         num_time_intervals = 2
         new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
-        if(a.delta_angle == -10.0)
-            cart_path = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(s.cart, a.first_prm_vertex_x, a.first_prm_vertex_y, a.second_prm_vertex_x,
-                                                                                    a.second_prm_vertex_y, new_cart_velocity,m.world.length,m.world.breadth,
-                                                                                    m.cart_goal_reached_distance_threshold, num_time_intervals)
+        if(a.fmm_path_flag)
+            cart_path = update_cart_position_pomdp_planning_2D_action_space_using_fmm_gradients(s.cart, new_cart_velocity, m.world.length, m.world.breadth,
+                                                                                m.gradient_info_table, 0.1, 0.1, num_time_intervals)
         else
             cart_path::Vector{Tuple{Float64,Float64,Float64}} = update_cart_position_pomdp_planning_2D_action_space(s.cart, a.delta_angle, new_cart_velocity, m.world.length,
                                                                                             m.world.breadth, m.cart_goal_reached_distance_threshold, num_time_intervals)
@@ -567,21 +528,12 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
     d_far_threshold = 6.0
     d_near_threshold = 4.0
     #This bool is also used to check if all the states in the belief are terminal or not.
-    first_execution_flag = true
-    nearest_prm_point = lookup_table_struct(-1, 0.0, 0.0, -1, 0.0, 0.0)
+    fmm_path_flag = true
+    #nearest_prm_point = lookup_table_struct(-1, 0.0, 0.0, -1, 0.0, 0.0)
     for (s, w) in weighted_particles(b)
         if(s.cart.x == -100.0 && s.cart.y == -100.0)
             continue
         else
-            if(first_execution_flag)
-                x_point =  clamp(floor(Int64,s.cart.x/ 1.0)+1,1,100)
-                y_point =  clamp(floor(Int64,s.cart.y/ 1.0)+1,1,100)
-                # theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
-                # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
-                nearest_prm_point = m.lookup_table[x_point,y_point]
-                first_execution_flag = false
-                # println("Hey, first_execution_flag is ", first_execution_flag)
-            end
             dist_to_closest_human = 200.0  #Some really big infeasible number (not Inf because avoid the type mismatch error)
             for human in s.pedestrians
                 euclidean_distance = sqrt((s.cart.x - human.x)^2 + (s.cart.y - human.y)^2)
@@ -590,8 +542,7 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
                 end
                 if(dist_to_closest_human < d_near_threshold)
                     # println("Too close ", dist_to_closest_human )
-                    return POMDP_2D_action_type(-10.0,-1.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
-                                                nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
+                    return POMDP_2D_action_type(-10.0,-1.0,true)
                 end
             end
             if(dist_to_closest_human > d_far_threshold)
@@ -605,24 +556,7 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
         end
     end
 
-    #This condition is true only when all the states in the belief are terminal. In that case, just return (0.0,0.0)
-    if(first_execution_flag == true)
-        #@show(0.0,0.0)
-        return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
-                                    nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
-    end
-
-    #This means all humans are away and you can accelerate.
-    if(speed_change_to_be_returned == 1.0)
-        return POMDP_2D_action_type(-10.0,speed_change_to_be_returned,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
-                                    nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
-    end
-
-    #If code has reached this point, then the best action is to maintain your current speed.
-    #We have already found the best steering angle to take.
-    #@show(best_delta_angle,0.0)
-    return POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
-                                nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y)
+    return POMDP_2D_action_type(-10.0,speed_change_to_be_returned,true)
 end
 
 function reward_to_be_awarded_at_max_depth_in_lower_bound_policy_rollout(m,b)
