@@ -126,22 +126,24 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
 end
 
 #Returns the updated belief over humans and number of risks encountered
-function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving_along_prm_path(env_right_now, current_belief,
+function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving_along_fmm_path(env_right_now, current_belief,
                                                             all_gif_environments, all_risky_scenarios, time_stamp,
                                                             num_humans_to_care_about_while_pomdp_planning, cone_half_angle,
-                                                            lidar_range, closest_ped_dist_threshold, user_defined_rng, first_prm_vertex_x,
-                                                            first_prm_vertex_y, second_prm_vertex_x, second_prm_vertex_y, io)
+                                                            lidar_range, closest_ped_dist_threshold, user_defined_rng, gradient_info_table, io)
 
     number_risks = 0
 
-    cart_path = update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(env_right_now.cart, first_prm_vertex_x, first_prm_vertex_y,
-                                                        second_prm_vertex_x, second_prm_vertex_y, env_right_now.cart.v,
-                                                        env_right_now.length, env_right_now.breadth,1.0,10)
+    cart_path = update_cart_position_pomdp_planning_2D_action_space_using_fmm_gradients(env_right_now.cart, env_right_now.cart.v, env_right_now.length, env_right_now.breadth,
+                                                                                                    gradient_info_table, 0.1, 0.1, 10)
     cart_path = cart_path[2:end]
+    cart_final_orientation = get_heading_angle(cart_path[end][1],cart_path[end][2],env_right_now.cart.x, env_right_now.cart.y)
+    delta_angle::Float64 = cart_final_orientation - env_right_now.cart.theta
+    delta_angle = 0.0
     #Simulate for 0 to 0.5 seconds
     env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
     for i in 1:5
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = cart_path[i][1], cart_path[i][2], cart_path[i][3]
+        env_right_now.cart.x, env_right_now.cart.y = cart_path[i][1], cart_path[i][2]
+        env_right_now.cart.theta = env_right_now.cart.theta + (delta_angle * (1/10))
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
         env_right_now.complete_cart_lidar_data = get_lidar_data(env_right_now,lidar_range)
         env_right_now.cart_lidar_data = get_nearest_n_pedestrians_in_cone_pomdp_planning_1D_or_2D_action_space(env_right_now.cart,
@@ -165,7 +167,8 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
     #Simulate for 0.5 to 1 second
     env_before_humans_and_cart_simulated_for_second_half_second = deepcopy(env_right_now)
     for i in 6:10
-        env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta = cart_path[i][1], cart_path[i][2], cart_path[i][3]
+        env_right_now.cart.x, env_right_now.cart.y = cart_path[i][1], cart_path[i][2]
+        env_right_now.cart.theta = env_right_now.cart.theta + (delta_angle * (1/10))
         env_right_now.humans = move_human_for_one_time_step_in_actual_environment(env_right_now,0.1,user_defined_rng)
         if(i==10)
             respawn_humans(env_right_now, user_defined_rng)

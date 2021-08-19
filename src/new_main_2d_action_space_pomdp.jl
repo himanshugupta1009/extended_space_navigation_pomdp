@@ -1,5 +1,5 @@
 include("environment.jl")
-include("prm.jl")
+include("fmm.jl")
 include("utils.jl")
 include("two_d_action_space_pomdp.jl")
 include("belief_tracker.jl")
@@ -116,12 +116,11 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                                                                             cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
                                                                             MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), a.delta_angle, io)
                     elseif( a.delta_angle == -10.0 )
-                        current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving_along_prm_path(
-                                                                            env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments,
-                                                                            all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
-                                                                            cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                                            MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), a.first_prm_vertex_x, a.first_prm_vertex_y,
-                                                                            a.second_prm_vertex_x, a.second_prm_vertex_y, io)
+                        current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving_along_fmm_path(
+                                                                                    env_right_now, current_belief_over_complete_cart_lidar_data,all_gif_environments,
+                                                                                    all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
+                                                                                    cone_half_angle,lidar_range, m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),
+                                                                                    m.gradient_info_table, io)
                     end
                     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                         env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
@@ -200,92 +199,21 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
         time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
 end
 
-function get_available_custom_actions_holonomic(m::POMDP_Planner_2D_action_space,b)
+function get_actions_holonomic_fmm(m::POMDP_Planner_2D_action_space,b)
     pomdp_state = first(particles(b))
-    x_point =  clamp(floor(Int64,pomdp_state.cart.x/ 1.0)+1,1,100)
-    y_point =  clamp(floor(Int64,pomdp_state.cart.y/ 1.0)+1,1,100)
-    nearest_prm_point = m.lookup_table[x_point,y_point]
     if(pomdp_state.cart.v == 0.0)
-        if(nearest_prm_point.closest_prm_vertex_num == -1)
-            a = [ POMDP_2D_action_type(-pi/4,1.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/12,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/6,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/4,1.0,0.0,0.0,0.0,0.0) ]
-        else
-            a = [ POMDP_2D_action_type(-pi/4,1.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/12,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/6,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/4,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-10.0,1.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
-                                            nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y) ]
-        end
+        a = [ POMDP_2D_action_type(-pi/4,1.0,false) , POMDP_2D_action_type(-pi/6,1.0,false),
+            POMDP_2D_action_type(-pi/12,1.0,false), POMDP_2D_action_type(0.0,1.0,false),
+            POMDP_2D_action_type(0.0,1.0,false), POMDP_2D_action_type(pi/12,1.0,false),
+            POMDP_2D_action_type(pi/6,1.0,false), POMDP_2D_action_type(pi/4,1.0,false),
+            POMDP_2D_action_type(-10.0,1.0,true) ]
     # elseif (pomdp_state.cart.v == m.max_cart_speed)
     else
-        if(nearest_prm_point.closest_prm_vertex_num == -1)
-            # return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
-            #Without immediate stop action
-            a = [ POMDP_2D_action_type(-pi/4,0.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,0.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,-1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/12,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(pi/6,0.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/4,0.0,0.0,0.0,0.0,0.0) ]
-        else
-            # return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
-            #Without immediate stop action
-            a = [ POMDP_2D_action_type(-pi/4,0.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,0.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,-1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/12,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(pi/6,0.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/4,0.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x,
-                                                        nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_x,
-                                                        nearest_prm_point.next_prm_vertex_y) ]
-        end
-    end
-    return a
-end
-
-function get_available_custom_actions_non_holonomic(m::POMDP_Planner_2D_action_space,b)
-    pomdp_state = first(particles(b))
-    x_point =  floor(Int64,pomdp_state.cart.x/ 1.0)+1
-    y_point =  floor(Int64,pomdp_state.cart.y/ 1.0)+1
-    theta_point = clamp(floor(Int64,pomdp_state.cart.theta/(pi/18))+1,1,36)
-    nearest_prm_point = m.lookup_table[x_point,y_point,theta_point]
-    # a = Array{ Union{ Tuple{Float64,Float64}, Tuple{ Tuple{Float64,Float64}, Tuple{Float64,Float64}, Float64 } } ,1}()
-    if(pomdp_state.cart.v == 0.0)
-        if(nearest_prm_point.closest_prm_vertex_num == -1)
-            a = [ POMDP_2D_action_type(-pi/4,1.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/12,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/6,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/4,1.0,0.0,0.0,0.0,0.0) ]
-        else
-            a = [ POMDP_2D_action_type(-pi/4,1.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/12,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/6,1.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(pi/4,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-10.0,1.0,nearest_prm_point.closest_prm_vertex_x, nearest_prm_point.closest_prm_vertex_y,
-                                            nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y) ]
-        end
-    # elseif (pomdp_state.cart.v == m.max_cart_speed)
-    else
-        if(nearest_prm_point.closest_prm_vertex_num == -1)
-            # return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
-            #Without immediate stop action
-            a = [ POMDP_2D_action_type(-pi/4,0.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,0.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,-1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/12,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(pi/6,0.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/4,0.0,0.0,0.0,0.0,0.0) ]
-        else
-            # return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
-            #Without immediate stop action
-            a = [ POMDP_2D_action_type(-pi/4,0.0,0.0,0.0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(-pi/12,0.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(0.0,-1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(0.0,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(0.0,1.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/12,0.0,0.0,0.0,0.0,0.0),POMDP_2D_action_type(pi/6,0.0,0.0,0.0,0.0,0.0),
-                POMDP_2D_action_type(pi/4,0.0,0.0,0.0,0.0,0.0), POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_x,
-                                                        nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_x,
-                                                        nearest_prm_point.next_prm_vertex_y) ]
-        end
+        a = [ POMDP_2D_action_type(-pi/4,0.0,false) , POMDP_2D_action_type(-pi/6,0.0,false),
+            POMDP_2D_action_type(-pi/12,0.0,false), POMDP_2D_action_type(0.0,-1.0,false),
+            POMDP_2D_action_type(0.0,0.0,false),POMDP_2D_action_type(0.0,1.0,false),
+            POMDP_2D_action_type(pi/12,0.0,false),POMDP_2D_action_type(pi/6,0.0,false),
+            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true) ]
     end
     return a
 end
@@ -320,12 +248,11 @@ if(run_simulation_flag)
     # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
     env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
-    lookup_table = load("prm_hash_table.jld2")["lookup_table"]
-    if(lookup_table == nothing)
-        graph = generate_prm_vertices(500, rand_noise_generator_for_prm, env)
-        d = generate_prm_edges(env, graph, 10)
-        lookup_table = generate_prm_points_coordinates_lookup_table_holonomic(env,graph)
-    end
+    k = generate_slowness_map_from_given_environment(env,2.0)
+    discretization = [0.1,0.1]
+    source = CartesianIndex(250,1000)
+    t = solve_eikonal_equation_on_given_map(k, discretization, source)
+    g = calculate_gradients(t)
     env_right_now = deepcopy(env)
 
     filename = "output_just_2d_action_space_pomdp_planner.txt"
@@ -340,10 +267,10 @@ if(run_simulation_flag)
     # obstacle_distance_threshold::Float64; obstacle_collision_penalty::Float64; goal_reward_distance_threshold::Float64;
     # cart_goal_reached_distance_threshold::Float64; goal_reward::Float64; max_cart_speed::Float64; world::experiment_environment;
     # lookup_table:: Matrix
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now,lookup_table)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now,g)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-    actions(m::POMDP_Planner_2D_action_space,b) = get_available_custom_actions_holonomic(m,b)
+    actions(m::POMDP_Planner_2D_action_space,b) = get_actions_holonomic_fmm(m,b)
 
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
     #                         max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
