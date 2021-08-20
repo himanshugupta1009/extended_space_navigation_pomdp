@@ -117,3 +117,10 @@ struct temp_check
     x::Float64
     y::Float64
 end
+
+env_num = 45
+test_env = just_2D_pomdp_all_observed_environments["t="*string(env_num)]
+test_a = just_2D_pomdp_all_actions["t="*string(env_num)]
+update_cart_position_pomdp_planning_2D_action_space_using_prm_vertex_action(test_env.cart,
+                                                test_a.first_prm_vertex_x, test_a.first_prm_vertex_y,test_a.second_prm_vertex_x, test_a.second_prm_vertex_y,
+                                                test_env.cart.v,test_env.length, test_env.breadth,1.0,10)
