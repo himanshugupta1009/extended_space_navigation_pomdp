@@ -145,3 +145,50 @@ function get_available_custom_actions_non_holonomic(m::POMDP_Planner_2D_action_s
     end
     return a
 end
+
+function get_available_custom_actions_non_holonomic(m::POMDP_Planner_2D_action_space,b)
+    pomdp_state = first(particles(b))
+    x_point =  floor(Int64,pomdp_state.cart.x/ 1.0)+1
+    y_point =  floor(Int64,pomdp_state.cart.y/ 1.0)+1
+    theta_point = clamp(floor(Int64,pomdp_state.cart.theta/(pi/18))+1,1,36)
+    nearest_prm_point = m.lookup_table[x_point,y_point,theta_point]
+    # a = Array{ Union{ Tuple{Float64,Float64}, Tuple{ Tuple{Float64,Float64}, Tuple{Float64,Float64}, Float64 } } ,1}()
+    if(pomdp_state.cart.v == 0.0)
+        if(nearest_prm_point.closest_prm_vertex_num == -1)
+            a = [ POMDP_2D_action_type(-pi/4,1.0,0,0.0,0.0,0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(-pi/12,1.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(0.0,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(0.0,1.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(pi/12,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(pi/6,1.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(pi/4,1.0,0,0.0,0.0,0,0.0,0.0) ]
+        else
+            a = [ POMDP_2D_action_type(-pi/4,1.0,0,0.0,0.0,0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(-pi/12,1.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(0.0,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(0.0,1.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(pi/12,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(pi/6,1.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(pi/4,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(-10.0,1.0,nearest_prm_point.closest_prm_vertex_num,nearest_prm_point.closest_prm_vertex_x,
+                                            nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_num,
+                                            nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y) ]
+        end
+    # elseif (pomdp_state.cart.v == m.max_cart_speed)
+    else
+        if(nearest_prm_point.closest_prm_vertex_num == -1)
+            # return [(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            #Without immediate stop action
+            a = [ POMDP_2D_action_type(-pi/4,0.0,0,0.0,0.0,0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(-pi/12,0.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(0.0,-1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(0.0,0.0,0,0.0,0.0,0,0.0,0.0),POMDP_2D_action_type(0.0,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(pi/12,0.0,0,0.0,0.0,0,0.0,0.0),POMDP_2D_action_type(pi/6,0.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(pi/4,0.0,0,0.0,0.0,0,0.0,0.0) ]
+        else
+            # return [(delta_angle, 0.0),(-pi/4,0.0),(-pi/6,0.0),(-pi/12,0.0),(0.0,-1.0),(0.0,0.0),(0.0,1.0),(pi/12,1.0),(pi/6,0.0),(pi/4,0.0),(-10.0,-10.0)]
+            #Without immediate stop action
+            a = [ POMDP_2D_action_type(-pi/4,0.0,0,0.0,0.0,0,0.0,0.0) , POMDP_2D_action_type(-pi/6,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(-pi/12,0.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(0.0,-1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(0.0,0.0,0,0.0,0.0,0,0.0,0.0),POMDP_2D_action_type(0.0,1.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(pi/12,0.0,0,0.0,0.0,0,0.0,0.0),POMDP_2D_action_type(pi/6,0.0,0,0.0,0.0,0,0.0,0.0),
+                POMDP_2D_action_type(pi/4,0.0,0,0.0,0.0,0,0.0,0.0), POMDP_2D_action_type(-10.0,0.0,nearest_prm_point.closest_prm_vertex_num,nearest_prm_point.closest_prm_vertex_x,
+                                                                                    nearest_prm_point.closest_prm_vertex_y,nearest_prm_point.next_prm_vertex_num,
+                                                                                    nearest_prm_point.next_prm_vertex_x, nearest_prm_point.next_prm_vertex_y) ]
+        end
+    end
+    return a
+end
