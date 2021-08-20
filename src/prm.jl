@@ -205,6 +205,7 @@ function generate_prm_points_coordinates_lookup_table_holonomic(world, graph)
                 closest_prm_vertex_x = get_prop(graph,closest_prm_vertex,:x)
                 closest_prm_vertex_y = get_prop(graph,closest_prm_vertex,:y)
                 second_prm_vertex = get_prop(graph,closest_prm_vertex,:path_to_goal)[2]
+                second_prm_vertex = second_prm_vertex.vertex_num
                 second_prm_vertex_x = get_prop(graph,second_prm_vertex,:x)
                 second_prm_vertex_y = get_prop(graph,second_prm_vertex,:y)
             end

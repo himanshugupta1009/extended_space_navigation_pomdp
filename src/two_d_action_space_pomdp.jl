@@ -35,7 +35,7 @@ struct POMDP_2D_action_type
 end
 
 #POMDP struct
-struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,POMDP_2D_action_type,Array{location,1}}
+mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,POMDP_2D_action_type,Array{location,1}}
     discount_factor::Float64
     pedestrian_distance_threshold::Float64
     pedestrian_collision_penalty::Float64
@@ -48,6 +48,9 @@ struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space
     world::experiment_environment
     prm_details::Array{prm_info_struct,1}
     lookup_table::Array{lookup_table_struct,2}
+    last_prm_vertex_visited::Int
+    next_prm_vertex_to_be_visited::Int
+    last_prm_vertex_crossed_flag::Bool
 end
 
 #Function to check terminal state
@@ -328,7 +331,7 @@ end
 function goal_reward_pomdp_planning_2D_action_space(s, distance_threshold, goal_reached_flag, goal_reward)
     total_reward = 0.0
     if(goal_reached_flag)
-        #println("Wow, goal reached")
+        println("Wow, goal reached")
         total_reward = goal_reward
     else
         euclidean_distance = ((s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2)^0.5
@@ -605,6 +608,10 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
                         nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
                                                                     s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y)
                     else
+                        if(length(m.prm_details[s.next_prm_vertex_num].path_to_goal) == 1)
+                            println(s)
+                            println(m.prm_details[s.next_prm_vertex_num])
+                        end
                         next_to_next_vertex = m.prm_details[s.next_prm_vertex_num].path_to_goal[2]
                         nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
                                                                 next_to_next_vertex.vertex_num,next_to_next_vertex.x, next_to_next_vertex.y)

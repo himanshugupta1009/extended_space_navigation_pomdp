@@ -189,7 +189,7 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
     final_updated_belief = update_belief_from_old_world_and_new_world(updated_belief,
                                                     env_before_humans_and_cart_simulated_for_second_half_second, env_right_now)
 
-    return final_updated_belief, number_risks
+    return final_updated_belief, number_risks, first_vertex_crossed_flag
 end
 
 #Functions for simulating the cart and pedestrians for the 1D planner
