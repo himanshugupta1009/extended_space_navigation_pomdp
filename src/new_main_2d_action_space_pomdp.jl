@@ -19,7 +19,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     one_time_step = 0.5
     lidar_range = 30
     num_humans_to_care_about_while_pomdp_planning = 6
-    cone_half_angle::Float64 = (2/3)*pi
+    cone_half_angle::Float64 = (1)*pi
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_flag = false
     cart_ran_into_static_obstacle_flag = false
@@ -64,7 +64,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(env_right_now,
                                                         initial_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios, time_taken_by_cart,
                                                         num_humans_to_care_about_while_pomdp_planning,cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                        MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), io )
+                                                        user_defined_rng, io )
     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
     number_risks += risks_in_simulation
@@ -114,12 +114,12 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                                                                             env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments,
                                                                             all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
                                                                             cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                                            MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), a.delta_angle, io)
+                                                                            user_defined_rng, a.delta_angle, io)
                     elseif( a.delta_angle == -10.0 )
                         current_belief_over_complete_cart_lidar_data, risks_in_simulation = simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving_along_fmm_path(
                                                                                     env_right_now, current_belief_over_complete_cart_lidar_data,all_gif_environments,
                                                                                     all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
-                                                                                    cone_half_angle,lidar_range, m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),
+                                                                                    cone_half_angle,lidar_range, m.pedestrian_distance_threshold, user_defined_rng,
                                                                                     m.gradient_info_table, io)
                     end
                     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
@@ -131,7 +131,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                                                                         env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments,
                                                                         all_risky_scenarios, time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning,
                                                                         cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                                        MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ), io )
+                                                                        user_defined_rng, io )
                     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                         env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
 
@@ -204,7 +204,7 @@ function get_actions_holonomic_fmm(m::POMDP_Planner_2D_action_space,b)
     if(pomdp_state.cart.v == 0.0)
         a = [ POMDP_2D_action_type(-pi/4,1.0,false) , POMDP_2D_action_type(-pi/6,1.0,false),
             POMDP_2D_action_type(-pi/12,1.0,false), POMDP_2D_action_type(0.0,1.0,false),
-            POMDP_2D_action_type(0.0,1.0,false), POMDP_2D_action_type(pi/12,1.0,false),
+            POMDP_2D_action_type(0.0,0.0,false), POMDP_2D_action_type(pi/12,1.0,false),
             POMDP_2D_action_type(pi/6,1.0,false), POMDP_2D_action_type(pi/4,1.0,false),
             POMDP_2D_action_type(-10.0,1.0,true) ]
     # elseif (pomdp_state.cart.v == m.max_cart_speed)
@@ -213,14 +213,15 @@ function get_actions_holonomic_fmm(m::POMDP_Planner_2D_action_space,b)
             POMDP_2D_action_type(-pi/12,0.0,false), POMDP_2D_action_type(0.0,-1.0,false),
             POMDP_2D_action_type(0.0,0.0,false),POMDP_2D_action_type(0.0,1.0,false),
             POMDP_2D_action_type(pi/12,0.0,false),POMDP_2D_action_type(pi/6,0.0,false),
-            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true) ]
+            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true),
+            POMDP_2D_action_type(-10.0,-10.0,true) ]
     end
     return a
 end
 
 # lookup_table = nothing
 gr()
-run_simulation_flag = true
+run_simulation_flag = false
 write_to_file_flag = true
 create_gif_flag = true
 
@@ -234,13 +235,11 @@ if(run_simulation_flag)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 1100709942
-    rand_noise_generator_seed_for_sim = 2447832946
-    rand_noise_generator_seed_for_prm = 11
-    rand_noise_generator_seed_for_solver = 0x487d9013
+    rand_noise_generator_seed_for_env = 716808938
+    rand_noise_generator_seed_for_sim = 2470108112
+    rand_noise_generator_seed_for_solver = 2734565220
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
-    rand_noise_generator_for_prm = MersenneTwister(rand_noise_generator_seed_for_prm)
     rand_noise_generator_for_solver = MersenneTwister(rand_noise_generator_seed_for_solver)
 
     #Initialize environment
@@ -259,7 +258,6 @@ if(run_simulation_flag)
     io = open(filename,"w")
     write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
     write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
-    write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
 
     #Create POMDP for env_right_now
     #POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_action_space,Int,Array{location,1}}
@@ -267,7 +265,7 @@ if(run_simulation_flag)
     # obstacle_distance_threshold::Float64; obstacle_collision_penalty::Float64; goal_reward_distance_threshold::Float64;
     # cart_goal_reached_distance_threshold::Float64; goal_reward::Float64; max_cart_speed::Float64; world::experiment_environment;
     # lookup_table:: Matrix
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now,g)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,2.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now,g)
     discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
     actions(m::POMDP_Planner_2D_action_space,b) = get_actions_holonomic_fmm(m,b)
@@ -303,7 +301,7 @@ if(run_simulation_flag)
 
     if(write_to_file_flag)
         expt_file_name = "expt_details_just_2d_action_space_pomdp_planner.jld2"
-        write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
+        write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
                 solver.rng.seed[1],just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments,
                 just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees,
                 just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,just_2D_pomdp_all_planners,just_2D_pomdp_cart_throughout_path,
@@ -325,7 +323,7 @@ supposed_a[1]*180/pi
 =#
 
 #=
-test_time_step = "122";
+test_time_step = "57";
 b = POMDP_2D_action_space_state_distribution(just_2D_pomdp_all_observed_environments["t="*test_time_step],just_2D_pomdp_all_generated_beliefs["t="*test_time_step]);
 copy_of_planner = deepcopy(just_2D_pomdp_all_planners["t="*test_time_step]);
 supposed_a, supposed_info = action_info(copy_of_planner, b);
@@ -343,13 +341,14 @@ ARDESPOT.lbound(copy_of_planner.bounds.lower, copy_of_planner.pomdp, curr_scenar
 ARDESPOT.ubound(copy_of_planner.bounds.upper, copy_of_planner.pomdp, curr_scenario_belief)
 
 
-test_time_step = "8";
+test_time_step = "57";
 b = POMDP_2D_action_space_state_distribution(just_2D_pomdp_all_observed_environments["t="*test_time_step],just_2D_pomdp_all_generated_beliefs["t="*test_time_step]);
 copy_of_planner = deepcopy(just_2D_pomdp_all_planners["t="*test_time_step]);
 root_scenarios = [i=>rand(copy_of_planner.rng, b) for i in 1:copy_of_planner.sol.K];
 curr_scenario_belief = ScenarioBelief(root_scenarios, copy_of_planner.rs, 0, b);
 L_0, U_0 = bounds(copy_of_planner.bounds, copy_of_planner.pomdp, curr_scenario_belief)
 lb_policy = DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space_debug(golfcart_2D_action_space_pomdp, b,io)),max_depth=100);
+lb_policy = DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),max_depth=100);
 io = open("random_file.txt", "w")
 ARDESPOT.lbound(lb_policy, copy_of_planner.pomdp, curr_scenario_belief)
 close(io)
@@ -357,7 +356,7 @@ ARDESPOT.ubound(copy_of_planner.bounds.upper, copy_of_planner.pomdp, curr_scenar
 calculate_lower_bound_policy_pomdp_planning_2D_action_space_debug(copy_of_planner.pomdp, curr_scenario_belief)
 
 
-gen_action_debugging = (-0.6491513225430392, 1.0)
+gen_action_debugging = POMDP_2D_action_type(0.0, -1.0, false)
 curr_pomdp_state = curr_scenario_belief.scenarios[1][2]
 POMDPs.gen(golfcart_2D_action_space_pomdp, curr_pomdp_state, gen_action_debugging, MersenneTwister(1234))
 
