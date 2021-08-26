@@ -237,14 +237,14 @@ function update_cart_position_pomdp_planning_2D_action_space_using_fmm_gradients
                 current_x, current_y = new_x,new_y
             end
             if(mod(curr_path_length,insertion_interval) == 0.0)
-                # if(curr_path_length == max_num_points)
-                #     current_theta = get_heading_angle(current_x, current_y, current_cart.x, current_cart.y)
-                # end
+                if(curr_path_length == max_num_points)
+                    current_theta = get_heading_angle(current_x, current_y, current_cart.x, current_cart.y)
+                end
                 push!(cart_path,(current_x, current_y, current_theta))
                 num_insertions_made += 1
             end
             if(current_x>world_length || current_y>world_breadth || current_x<0.0 || current_y<0.0)
-                # current_theta = get_heading_angle(current_x, current_y, current_cart.x, current_cart.y)
+                current_theta = get_heading_angle(current_x, current_y, current_cart.x, current_cart.y)
                 for j in num_insertions_made:num_time_intervals
                     push!(cart_path,(current_x, current_y, current_theta))
                 end
@@ -366,14 +366,16 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         else
             # Simulate all the pedestrians
             for human in s.pedestrians
-                if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L+0.5, human.x, human.y, m.pedestrian_distance_threshold) )
-                    new_cart_position = (-100.0, -100.0, -100.0)
-                    collision_with_pedestrian_flag = true
-                    new_human_states = human_state[]
-                    observed_positions = location[ location(-50.0,-50.0) ]
-                    # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
-                    # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
-                    break
+                if(s.cart.v!=0.0)
+                    if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L, human.x, human.y, m.pedestrian_distance_threshold) )
+                        new_cart_position = (-100.0, -100.0, -100.0)
+                        collision_with_pedestrian_flag = true
+                        new_human_states = human_state[]
+                        observed_positions = location[ location(-50.0,-50.0) ]
+                        # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
+                        # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
+                        break
+                    end
                 end
                 modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
                 push!(new_human_states, modified_human_state)
@@ -387,7 +389,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
                         for human_index in 1:length(s.pedestrians)
                             intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
                                                                             new_human_states[human_index].x,new_human_states[human_index].y, (1/num_time_intervals)*(time_index-1) )
-                            if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
+                            if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L,
                                                         intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
                                 new_cart_position = (-100.0, -100.0, -100.0)
                                 collision_with_pedestrian_flag = true
