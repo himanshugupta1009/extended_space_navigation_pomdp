@@ -153,7 +153,7 @@ end
 function get_heading_angle(human_x, human_y, cart_x, cart_y)
 
     # NOTE: Angle returned by this function is always wrapped between 0 and 2pi
-    
+
     #First Quadrant
     if(human_x >= cart_x && human_y >= cart_y)
         if(human_x == cart_x)
@@ -533,7 +533,7 @@ function check_consistency_personal_copy(io, s)
     end
 end
 
-function write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
+function write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
         rand_noise_generator_seed_for_solver, all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
         all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
         time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag, filename)
@@ -541,7 +541,7 @@ function write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand
     d = Dict()
     d["rand_noise_generator_seed_for_env"] = rand_noise_generator_seed_for_env
     d["rand_noise_generator_seed_for_sim"] = rand_noise_generator_seed_for_sim
-    d["rand_noise_generator_seed_for_prm"] = rand_noise_generator_seed_for_prm
+    # d["rand_noise_generator_seed_for_prm"] = rand_noise_generator_seed_for_prm
     d["rand_noise_generator_seed_for_solver"] = rand_noise_generator_seed_for_solver
     d["all_gif_environemnts"] = all_gif_environments
     d["all_observed_environments"] = all_observed_environments
