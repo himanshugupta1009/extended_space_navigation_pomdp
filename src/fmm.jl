@@ -291,22 +291,22 @@ function generate_slowness_map_from_given_environment(world, obstacle_padding=2.
                                                     obstacle, obstacle_padding+world.cart.L)
                 if(slow_speed_flag==true)
                     k[i,j] = 0.5
-                else
-                    dist_to_obstacle = find_distance_between_two_points(grid_center_x, grid_center_y, obstacle.x, obstacle.y)
-                    if(dist_to_obstacle<min_dist)
-                        min_dist = dist_to_obstacle
-                    end
+                # else
+                #     dist_to_obstacle = find_distance_between_two_points(grid_center_x, grid_center_y, obstacle.x, obstacle.y)
+                #     if(dist_to_obstacle<min_dist)
+                #         min_dist = dist_to_obstacle
+                #     end
                 end
                 if(collision_with_obstacle_flag==true)
                     k[i,j] = Inf
                     break
                 end
             end
-            dist_to_closest_wall = find_distance_to_closest_wall(grid_center_x, grid_center_y, world.length, world.breadth)
-            dist_to_closest_obstacle = min(min_dist, dist_to_closest_wall)
-            if( k[i,j] != Inf )
-                k[i,j] = dist_to_closest_obstacle
-            end
+            # dist_to_closest_wall = find_distance_to_closest_wall(grid_center_x, grid_center_y, world.length, world.breadth)
+            # dist_to_closest_obstacle = min(min_dist, dist_to_closest_wall)
+            # if( k[i,j] != Inf )
+            #     k[i,j] = dist_to_closest_obstacle
+            # end
         end
     end
     return k
