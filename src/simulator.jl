@@ -138,7 +138,6 @@ function simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_m
     cart_path = cart_path[2:end]
     cart_final_orientation = get_heading_angle(cart_path[end][1],cart_path[end][2],env_right_now.cart.x, env_right_now.cart.y)
     delta_angle::Float64 = cart_final_orientation - env_right_now.cart.theta
-    delta_angle = 0.0
     #Simulate for 0 to 0.5 seconds
     env_before_humans_and_cart_simulated_for_first_half_second = deepcopy(env_right_now)
     for i in 1:5
