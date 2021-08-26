@@ -5,14 +5,14 @@ using JLD2
 
 discount(p::POMDP_Planner_2D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_2D_action_space, s::POMDP_state_2D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-actions(m::POMDP_Planner_2D_action_space,b) = get_available_actions_non_holonomic(m,b)
+actions(m::POMDP_Planner_2D_action_space,b) = get_actions_holonomic_fmm(m,b)
 
-function run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(world, lookup_table, rand_noise_generator_for_sim, iteration_num, output_filename)
+function run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(world, gradient_info_matrix, rand_noise_generator_for_sim, iteration_num, output_filename, create_gif_flag=false)
 
     #Create POMDP for env_right_now
     env_right_now = deepcopy(world)
 
-    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,1.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now, lookup_table)
+    golfcart_2D_action_space_pomdp = POMDP_Planner_2D_action_space(0.97,1.0,-100.0,2.0,-100.0,0.0,1.0,1000.0,2.0,env_right_now,gradient_info_matrix)
 	solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(b->calculate_lower_bound_policy_pomdp_planning_2D_action_space(golfcart_2D_action_space_pomdp, b)),
                             max_depth=100),calculate_upper_bound_value_pomdp_planning_2D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
 
@@ -27,16 +27,18 @@ function run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(world, l
     just_2D_pomdp_all_planners,just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,
     just_2D_pomdp_time_taken_by_cart,just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
     just_2D_pomdp_cart_ran_into_boundary_wall_flag,just_2D_pomdp_experiment_success_flag = run_one_simulation_2D_POMDP_planner(env_right_now, rand_noise_generator_for_sim,
-                                                                                        golfcart_2D_action_space_pomdp, planner, output_filename)
+                                                                                 		golfcart_2D_action_space_pomdp, planner, output_filename)
 
 	#=
-    anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
-        display_env(just_2D_pomdp_all_observed_environments[i]);
-        savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
-    end
-    gif_name = "./scenario_1_gifs/just_2D_action_space_pomdp_planner_run_"*string(iteration_num)*"_"*string(just_2D_pomdp_cart_reached_goal_flag)
-    gif_name = gif_name*"_"*string(just_2D_pomdp_time_taken_by_cart)*"_"*string(just_2D_pomdp_number_risks)*".gif"
-    gif(anim, gif_name, fps = 2)
+	if( create_gif_flag )
+	    anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
+	        display_env(just_2D_pomdp_all_observed_environments[i]);
+	        savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
+	    end
+	    gif_name = "./scenario_1_gifs/just_2D_action_space_pomdp_planner_run_"*string(iteration_num)*"_"*string(just_2D_pomdp_cart_reached_goal_flag)
+	    gif_name = gif_name*"_"*string(just_2D_pomdp_time_taken_by_cart)*"_"*string(just_2D_pomdp_number_risks)*".gif"
+	    gif(anim, gif_name, fps = 2)
+	end
 	=#
     return just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
     just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees, just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,
@@ -47,21 +49,18 @@ end
 
 discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0]
+actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
 
-function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, rand_noise_generator_for_sim, iteration_num, output_filename)
+function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, rand_noise_generator_for_sim, iteration_num, output_filename, create_gif_flag=false)
 
     #Create POMDP for env_right_now
     env_right_now = deepcopy(world)
 
-    golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,1.0,-100.0,1.0,1.0,1000.0,2.0,env_right_now,1)
+	golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,1.0,-100.0,1.0,1.0,1000.0,2.0,env_right_now,1)
+	solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
+            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf, max_trials=50, tree_in_info=true)
 
-    #actions(::POMDP_Planner_1D_action_space) = Float64[-0.5, 0.0, 0.5, -10.0]
-
-    solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
-            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true)
-
-	io = open(filename,"a")
+	io = open(output_filename,"a")
 	write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
     close(io)
 
@@ -73,16 +72,18 @@ function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, r
     astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
     astar_1D_cart_reached_goal_flag, astar_1D_cart_ran_into_static_obstacle_flag, astar_1D_cart_ran_into_boundary_wall_flag,
     astar_1D_experiment_success_flag = run_one_simulation_1D_POMDP_planner(env_right_now, rand_noise_generator_for_sim,
-                                                                                    golfcart_1D_action_space_pomdp, planner, output_filename)
+                                                                                golfcart_1D_action_space_pomdp, planner, output_filename)
 
 	#=
-    anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
-        display_env(just_2D_pomdp_all_observed_environments[i]);
-        savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
-    end
-    gif_name = "./scenario_1_gifs/just_2D_action_space_pomdp_planner_run_"*string(iteration_num)*"_"*string(just_2D_pomdp_cart_reached_goal_flag)
-    gif_name = gif_name*"_"*string(just_2D_pomdp_time_taken_by_cart)*"_"*string(just_2D_pomdp_number_risks)*".gif"
-    gif(anim, gif_name, fps = 2)
+	if(create_gif_flag)
+	    anim = @animate for i ∈ 1:length(just_2D_pomdp_all_observed_environments)
+	        display_env(just_2D_pomdp_all_observed_environments[i]);
+	        savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*string(i)*".png")
+	    end
+	    gif_name = "./scenario_1_gifs/just_2D_action_space_pomdp_planner_run_"*string(iteration_num)*"_"*string(just_2D_pomdp_cart_reached_goal_flag)
+	    gif_name = gif_name*"_"*string(just_2D_pomdp_time_taken_by_cart)*"_"*string(just_2D_pomdp_number_risks)*".gif"
+	    gif(anim, gif_name, fps = 2)
+	end
 	=#
     return astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
     astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
@@ -103,30 +104,27 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	num_times_cart_reached_goal_1D_POMDP_planner = 0
     total_sudden_stops_1D_POMDP_planner = 0
 
-	if(isfile("prm_hash_table.jld2"))
-		graph = nothing
-		lookup_table = load("prm_hash_table.jld2")["lookup_table"]
-	else
-		graph = nothing
-		lookup_table = nothing
-	end
+	first_simulation_flag = true
+	gradient_info_matrix = nothing
 
     for iteration_num in 1:num_simulations
 
 		#Set seed for different RNGs
 		rand_noise_generator_seed_for_env = rand(UInt32)
 	    rand_noise_generator_seed_for_sim = rand(UInt32)
-	    rand_noise_generator_seed_for_prm = 11
 	    rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
 	    rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
 		#Generate Environemnt
         experiment_env = generate_environment_L_shaped_corridor(num_humans, rand_noise_generator_for_env)
-		#Generate PRM and Lookup Table for the first time
-		if(graph == nothing && lookup_table==nothing)
-			graph = generate_prm_vertices(500, MersenneTwister(rand_noise_generator_seed_for_prm), experiment_env)
-	        d = generate_prm_edges(experiment_env, graph, 10)
-	        lookup_table = generate_prm_points_lookup_table_non_holonomic(experiment_env,graph)
+		#Generate FMM slowness map and the gradient lookup Table
+		if(first_simulation_flag)
+			k = generate_slowness_map_from_given_environment(experiment_env,2.0)
+	    	discretization = [0.1,0.1]
+	    	source = CartesianIndex(250,1000)
+	    	t = solve_eikonal_equation_on_given_map(k, discretization, source)
+	    	gradient_info_matrix = calculate_gradients(t)
+			first_simulation_flag = false
 		end
 
 		#Run experiment for 2D action space POMDP planner
@@ -136,7 +134,6 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
 	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
 	    write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
-	    write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
 		close(io)
 
 		just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments, just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,
@@ -144,12 +141,12 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	    just_2D_pomdp_all_planners,just_2D_pomdp_cart_throughout_path, just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,
 	    just_2D_pomdp_time_taken_by_cart,just_2D_pomdp_cart_reached_goal_flag, just_2D_pomdp_cart_ran_into_static_obstacle_flag,
 	    just_2D_pomdp_cart_ran_into_boundary_wall_flag,just_2D_pomdp_experiment_success_flag,
-		just_2D_pomdp_solver_rng = run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(experiment_env, lookup_table,
+		just_2D_pomdp_solver_rng = run_experiment_for_given_world_and_noise_with_2D_POMDP_planner(experiment_env, gradient_info_matrix,
 													rand_noise_generator_for_sim, iteration_num, output_filename_2D_AS_planner)
 
 		if(write_to_file_flag)
 			expt_details_filename_2D_AS_planner = "./scenario_4/2D/details_expt_" * string(iteration_num) * ".jld2"
-	        write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
+	        write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
 	                just_2D_pomdp_solver_rng,just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments,
 	                just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees,
 	                just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,just_2D_pomdp_all_planners,just_2D_pomdp_cart_throughout_path,
@@ -205,12 +202,12 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
         end
 
 		#Run experiment for 1D action space POMDP planner
+		rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 		output_filename_1D_AS_planner = "./scenario_4/1D/output_expt_" * string(iteration_num) * ".txt"
 		io = open(output_filename_1D_AS_planner,"w")
 		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
 	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
 	    write_and_print( io, "RNG seed for simulating pedestrians -> " * string(rand_noise_generator_seed_for_sim))
-	    write_and_print( io, "RNG seed for Generating PRM -> " * string(rand_noise_generator_seed_for_prm))
 		close(io)
 
 		astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
@@ -222,7 +219,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 
 		if(write_to_file_flag)
 			expt_details_filename_1D_AS_planner = "./scenario_4/1D/details_expt_" * string(iteration_num) * ".jld2"
-			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
+			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
 					astar_1D_solver_rng,astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
 					astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
 					astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
@@ -231,9 +228,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		end
 
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.
-		@show(astar_1D_number_risks)
 		if(astar_1D_number_risks != 0)
-			println("I am in")
 			risk_data_dict = Dict()
 			risk_data_dict["rng_seed_for_env_generation"] = rand_noise_generator_seed_for_env
 			risk_data_dict["rng_seed_for_simulator"] = rand_noise_generator_seed_for_sim
@@ -328,7 +323,7 @@ if(delete_old_txt_and_jld2_files_flag == true)
 end
 
 average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
-average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner = run_experiment_pipeline(300,15)
+average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner = run_experiment_pipeline(300,100)
 
 #=
 average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
