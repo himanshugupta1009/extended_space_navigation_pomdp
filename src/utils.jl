@@ -567,3 +567,12 @@ function find_distance_between_two_points(p1_x,p1_y, p2_x, p2_y)
     euclidean_distance = ((p1_x - p2_x)^2 + (p1_y - p2_y)^2)^0.5
     return euclidean_distance
 end
+
+function is_there_immediate_collision_with_pedestrians(world, pedestrian_distance_threshold)
+    for human in world.cart_lidar_data
+        if( find_if_two_circles_intersect(world.cart.x, world.cart.y, world.cart.L,human.x, human.y, pedestrian_distance_threshold) )
+            return true
+        end
+    end
+    return false
+end

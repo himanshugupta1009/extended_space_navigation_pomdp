@@ -77,7 +77,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
 
-    try
+    # try
         #Start Simulating for t>1
         while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
             #display_env(env_right_now)
@@ -96,6 +96,13 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
                 a, info = action_info(planner, b)
                 check_consistency_personal_copy(io,planner.rs)
+                if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold+m.world.cart.L))
+                    if(env_right_now.cart.v == 1.0)
+                        a = POMDP_2D_action_type(0.0,-1.0,false)
+                    elseif(env_right_now.cart.v == m.max_cart_speed)
+                        a = POMDP_2D_action_type(-10.0,-10.0,false)
+                    end
+                end
                 write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string(a) )
                 dict_key = "t="*string(time_taken_by_cart)
                 all_generated_trees[dict_key] = deepcopy(info)
@@ -165,14 +172,14 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
             end
             close(io)
         end
-    catch e
-        println("\n Things failed during the simulation. \n The error message is : \n ")
-        println(e)
-        experiment_success_flag = false
-        return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
-            all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
-            time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
-    end
+    # catch e
+    #     println("\n Things failed during the simulation. \n The error message is : \n ")
+    #     println(e)
+    #     experiment_success_flag = false
+    #     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
+    #         all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
+    #         time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
+    # end
 
     io = open(filename,"a")
     if(cart_reached_goal_flag == true)
@@ -213,8 +220,7 @@ function get_actions_holonomic_fmm(m::POMDP_Planner_2D_action_space,b)
             POMDP_2D_action_type(-pi/12,0.0,false), POMDP_2D_action_type(0.0,-1.0,false),
             POMDP_2D_action_type(0.0,0.0,false),POMDP_2D_action_type(0.0,1.0,false),
             POMDP_2D_action_type(pi/12,0.0,false),POMDP_2D_action_type(pi/6,0.0,false),
-            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true),
-            POMDP_2D_action_type(-10.0,-10.0,true) ]
+            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true)]
     end
     return a
 end
@@ -222,7 +228,7 @@ end
 # lookup_table = nothing
 gr()
 run_simulation_flag = false
-write_to_file_flag = true
+write_to_file_flag = false
 create_gif_flag = true
 
 if(run_simulation_flag)
@@ -235,9 +241,9 @@ if(run_simulation_flag)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 716808938
-    rand_noise_generator_seed_for_sim = 2470108112
-    rand_noise_generator_seed_for_solver = 2734565220
+    rand_noise_generator_seed_for_env = 0xc56e2cbb
+    rand_noise_generator_seed_for_sim = 0x48937552
+    rand_noise_generator_seed_for_solver = 0x375bcb93
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
     rand_noise_generator_for_solver = MersenneTwister(rand_noise_generator_seed_for_solver)
@@ -245,8 +251,8 @@ if(run_simulation_flag)
     #Initialize environment
     # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
-    # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
-    env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
+    env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
+    # env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
     k = generate_slowness_map_from_given_environment(env,2.0)
     discretization = [0.1,0.1]
     source = CartesianIndex(250,1000)
