@@ -92,7 +92,7 @@ function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, r
     astar_1D_experiment_success_flag, solver.rng.seed[1]
 end
 
-function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag = true)
+function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag = false)
 
     total_time_taken_2D_POMDP_planner = 0.0
 	total_safe_paths_2D_POMDP_planner = 0
@@ -128,7 +128,6 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		end
 
 		#Run experiment for 2D action space POMDP planner
-
 		output_filename_2D_AS_planner = "./scenario_4/2D/output_expt_" * string(iteration_num) * ".txt"
 		io = open(output_filename_2D_AS_planner,"w")
 		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
@@ -156,37 +155,15 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	    end
 
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.
-		if(just_2D_pomdp_number_risks != 0)
-			risk_data_dict = OrderedDict()
-			risk_data_dict["rng_seed_for_env_generation"] = rand_noise_generator_seed_for_env
-			risk_data_dict["rng_seed_for_simulator"] = rand_noise_generator_seed_for_sim
-			risk_data_dict["risky_scenarios"] = Dict()
-			for k in keys(just_2D_pomdp_all_risky_scenarios)
-				time_stamp = split(k,"=")[2]
-				time_stamp_in_seconds = parse(Int, split(time_stamp,"_")[1])
-				time_stamp_in_tenth_of_seconds = parse(Int, split(time_stamp,"_")[2])
-				#index_in_env = floor( Int(time_stamp_in_seconds) + 1 + (0.1*Int(time_stamp_in_tenth_of_seconds)) )
-				#Note that index_in_env here is different from what I described in simulator's documentation
-				#because if in a_b, let's say a in 5 and b is 10, then the tree that lead to this is at index 6
-				#but using the definition from simulator's documentation will make it 7 (which is the tree at next time step)
-				required_dict_key = "t="*string(time_stamp_in_seconds)
-				if(required_dict_key ∉ keys(risk_data_dict["risky_scenarios"]))
-					new_risky_scenario_dict = Dict()
-					new_risky_scenario_dict["start_env"] = just_2D_pomdp_all_observed_environments[required_dict_key]
-					new_risky_scenario_dict["current_belief"] = just_2D_pomdp_all_generated_beliefs[required_dict_key]
-					new_risky_scenario_dict["current_belief_over_all_lidar_data"] = just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data[required_dict_key]
-					new_risky_scenario_dict["tree"] = just_2D_pomdp_all_generated_trees[required_dict_key][:tree]
-					new_risky_scenario_dict["action"] = just_2D_pomdp_all_actions[required_dict_key]
-					temp_dict = Dict()
-					temp_dict[k] = just_2D_pomdp_all_risky_scenarios[k]
-					new_risky_scenario_dict["collision_gif_environments"] = temp_dict
-					risk_data_dict["risky_scenarios"][required_dict_key] = new_risky_scenario_dict
-				else
-					risk_data_dict["risky_scenarios"][required_dict_key]["collision_gif_environments"][k] = just_2D_pomdp_all_risky_scenarios[k]
-				end
-			end
-			risky_expt_filename_2D_AS_planner = "./scenario_4/2D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
-			save(risky_expt_filename_2D_AS_planner, risk_data_dict)
+		if(just_2D_pomdp_number_risks != 0 || just_2D_pomdp_cart_ran_into_boundary_wall_flag || just_2D_pomdp_cart_ran_into_static_obstacle_flag || !just_2D_pomdp_experiment_success_flag)
+			risky_expt_filename_2D_AS_planner = "./scenario_3/2D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
+			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
+	                just_2D_pomdp_solver_rng,just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments,
+	                just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data,just_2D_pomdp_all_generated_beliefs, just_2D_pomdp_all_generated_trees,
+	                just_2D_pomdp_all_risky_scenarios, just_2D_pomdp_all_actions,just_2D_pomdp_all_planners,just_2D_pomdp_cart_throughout_path,
+	                just_2D_pomdp_number_risks,just_2D_pomdp_number_of_sudden_stops,just_2D_pomdp_time_taken_by_cart,just_2D_pomdp_cart_reached_goal_flag,
+	                just_2D_pomdp_cart_ran_into_static_obstacle_flag,just_2D_pomdp_cart_ran_into_boundary_wall_flag,just_2D_pomdp_experiment_success_flag,
+	                risky_expt_filename_2D_AS_planner)
 		end
 
 		#Find in how many experiments cart actually reached the goal without colliding into boundary wall or static obstacles
@@ -228,37 +205,14 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		end
 
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.
-		if(astar_1D_number_risks != 0)
-			risk_data_dict = Dict()
-			risk_data_dict["rng_seed_for_env_generation"] = rand_noise_generator_seed_for_env
-			risk_data_dict["rng_seed_for_simulator"] = rand_noise_generator_seed_for_sim
-			risk_data_dict["risky_scenarios"] = Dict()
-			for k in keys(astar_1D_all_risky_scenarios)
-				time_stamp = split(k,"=")[2]
-				time_stamp_in_seconds = parse(Int, split(time_stamp,"_")[1])
-				time_stamp_in_tenth_of_seconds = parse(Int, split(time_stamp,"_")[2])
-				#index_in_env = floor( Int(time_stamp_in_seconds) + 1 + (0.1*Int(time_stamp_in_tenth_of_seconds)) )
-				#Note that index_in_env here is different from what I described in simulator's documentation
-				#because if in a_b, let's say a in 5 and b is 10, then the tree that lead to this is at index 6
-				#but using the definition from simulator's documentation will make it 7 (which is the tree at next time step)
-				required_dict_key = "t="*string(time_stamp_in_seconds)
-				if(required_dict_key ∉ keys(risk_data_dict["risky_scenarios"]))
-					new_risky_scenario_dict = Dict()
-					new_risky_scenario_dict["start_env"] = astar_1D_all_observed_environments[required_dict_key]
-					new_risky_scenario_dict["current_belief"] = astar_1D_all_generated_beliefs[required_dict_key]
-					new_risky_scenario_dict["current_belief_over_all_lidar_data"] = astar_1D_all_generated_beliefs_using_complete_lidar_data[required_dict_key]
-					new_risky_scenario_dict["tree"] = astar_1D_all_generated_trees[required_dict_key][:tree]
-					new_risky_scenario_dict["action"] = astar_1D_all_actions[required_dict_key]
-					temp_dict = Dict()
-					temp_dict[k] = astar_1D_all_risky_scenarios[k]
-					new_risky_scenario_dict["collision_gif_environments"] = temp_dict
-					risk_data_dict["risky_scenarios"][required_dict_key] = new_risky_scenario_dict
-				else
-					risk_data_dict["risky_scenarios"][required_dict_key]["collision_gif_environments"][k] = astar_1D_all_risky_scenarios[k]
-				end
-			end
-			risky_expt_filename_1D_AS_planner = "./scenario_4/1D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
-			save(risky_expt_filename_1D_AS_planner, risk_data_dict)
+		if(astar_1D_number_risks != 0 || astar_1D_cart_ran_into_boundary_wall_flag || astar_1D_cart_ran_into_static_obstacle_flag || !astar_1D_experiment_success_flag)
+			risky_expt_filename_1D_AS_planner = "./scenario_3/1D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
+			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
+					astar_1D_solver_rng,astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
+					astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
+					astar_1D_cart_throughout_path, astar_1D_number_risks, astar_1D_number_of_sudden_stops, astar_1D_time_taken_by_cart,
+					astar_1D_cart_reached_goal_flag, astar_1D_cart_ran_into_static_obstacle_flag, astar_1D_cart_ran_into_boundary_wall_flag,
+					astar_1D_experiment_success_flag,risky_expt_filename_1D_AS_planner)
 		end
 
 		#Find in how many experiments cart actually reached the goal without colliding into boundary wall or static obstacles
@@ -323,7 +277,7 @@ if(delete_old_txt_and_jld2_files_flag == true)
 end
 
 average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
-average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner = run_experiment_pipeline(300,100)
+average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner = run_experiment_pipeline(300,100,false)
 
 #=
 average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
