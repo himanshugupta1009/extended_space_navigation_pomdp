@@ -279,26 +279,45 @@ function POMDPs.gen(m::POMDP_Planner_1D_action_space, s, a, rng)
         #Check if there is a collision with any pedestrian during the cart's path.
         #Simulate all the pedestrians.
         for human in s.pedestrians
+            if(s.cart.v!=0.0)
+                if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L, human.x, human.y, m.pedestrian_distance_threshold) )
+                    new_cart_position = (-100.0, -100.0, -100.0)
+                    collision_with_pedestrian_flag = true
+                    new_human_states = human_state[]
+                    observed_positions = location[ location(-50.0,-50.0) ]
+                    # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
+                    # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
+                    break
+                end
+            end
             modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
             push!(new_human_states, modified_human_state)
             push!(observed_positions, observed_location)
         end
-        if(new_cart_velocity!=0.0)
-            for time_index in 1:(Int(new_cart_velocity)+1)
-                for human_index in 1:length(s.pedestrians)
-                    intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
-                                                                    new_human_states[human_index].x,new_human_states[human_index].y, (1/new_cart_velocity)*(time_index-1) )
-                    if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
-                                                intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
-                        new_cart_position = (-100.0, -100.0, -100.0)
-                        collision_with_pedestrian_flag = true
-                        observed_positions = location[ location(-50.0,-50.0) ]
+
+        if(!collision_with_pedestrian_flag)
+            if(new_cart_velocity!=0.0)
+                for time_index in 2:(Int(new_cart_velocity)+1)
+                    for human_index in 1:length(s.pedestrians)
+                        intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
+                                                                        new_human_states[human_index].x,new_human_states[human_index].y, (1/new_cart_velocity)*(time_index-1) )
+                        if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L,
+                                                    intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
+                            new_cart_position = (-100.0, -100.0, -100.0)
+                            collision_with_pedestrian_flag = true
+                            new_human_states = human_state[]
+                            observed_positions = location[ location(-50.0,-50.0) ]
+                            break
+                        end
+                    end
+                    if(collision_with_pedestrian_flag)
+                        cart_reached_goal_flag = false
                         break
                     end
                 end
+            else
+                #Don't do anything
             end
-        else
-            #Don't do anything
         end
     end
 
@@ -379,8 +398,8 @@ end
 function calculate_lower_bound_policy_pomdp_planning_1D_action_space(b)
     #Implement a reactive controller for your lower bound
     action_to_be_returned = 1.0
-    d_far_threshold = 5.0
-    d_near_threshold = 2.0
+    d_far_threshold = 6.0
+    d_near_threshold = 4.0
     for (s, w) in weighted_particles(b)
         dist_to_closest_human = 200.0  #Some big number (not Inf) that is not feasible
         for human in s.pedestrians
