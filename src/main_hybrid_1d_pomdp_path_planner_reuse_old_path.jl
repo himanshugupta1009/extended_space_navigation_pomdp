@@ -88,7 +88,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
 
-    try
+    # try
         #Start Simulating for t>1
         while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
             io = open(filename,"a")
@@ -140,6 +140,14 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                     all_planners[dict_key] = deepcopy(planner)
                     b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
                     a, info = action_info(planner, b)
+                    check_consistency_personal_copy(io,planner.rs)
+                    if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold+m.world.cart.L))
+                        if(env_right_now.cart.v == 1.0)
+                            a = -1.0
+                        elseif(env_right_now.cart.v == m.max_cart_speed)
+                            a = -10.0
+                        end
+                    end
                     all_generated_trees[dict_key] = deepcopy(info)
                     all_actions[dict_key] = a
                     write_and_print( io, "Action chosen by 1D action space speed POMDP planner: " * string(a) )
@@ -198,14 +206,14 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
             end
             close(io)
         end
-    catch e
-        println("\n Things failed during the simulation. \n The error message is : \n ")
-        println(e)
-        experiment_success_flag = false
-        return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
-                all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
-                time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
-    end
+    # catch e
+    #     println("\n Things failed during the simulation. \n The error message is : \n ")
+    #     println(e)
+    #     experiment_success_flag = false
+    #     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
+    #             all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
+    #             time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
+    # end
     io = open(filename,"a")
 
     if(cart_reached_goal_flag == true)
@@ -234,7 +242,7 @@ end
 
 gr()
 run_simulation_flag = false
-write_to_file_flag = true
+write_to_file_flag = false
 create_gif_flag = true
 
 if(run_simulation_flag)
@@ -247,19 +255,18 @@ if(run_simulation_flag)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 1109942534
-    rand_noise_generator_seed_for_sim = 2729464343
-    rand_noise_generator_seed_for_sim = 15
-    rand_noise_generator_seed_for_solver = 0x487d9013
+    rand_noise_generator_seed_for_env = 4258915202
+    rand_noise_generator_seed_for_sim = 946026168
+    rand_noise_generator_seed_for_solver = 2162167893
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
     rand_noise_generator_for_solver = MersenneTwister(rand_noise_generator_seed_for_solver)
 
     #Initialize environment
     # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
-    env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
+    # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
-    # env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
+    env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
     env_right_now = deepcopy(env)
 
     filename = "output_resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner.txt"

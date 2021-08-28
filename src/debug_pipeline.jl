@@ -80,3 +80,11 @@ gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 20)
 =#
 
 #inchrome(D3Tree(just_2D_pomdp_all_generated_trees[9][:tree]))
+
+
+
+#=
+test_time_step = "31";
+display_env(h["all_observed_environments"]["t="*test_time_step])
+h["all_observed_environments"]["t="*test_time_step].cart
+=#

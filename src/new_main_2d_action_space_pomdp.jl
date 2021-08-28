@@ -19,7 +19,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
     one_time_step = 0.5
     lidar_range = 30
     num_humans_to_care_about_while_pomdp_planning = 6
-    cone_half_angle::Float64 = (1)*pi
+    cone_half_angle::Float64 = (2/3)*pi
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_flag = false
     cart_ran_into_static_obstacle_flag = false
@@ -241,9 +241,9 @@ if(run_simulation_flag)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 0xc56e2cbb
-    rand_noise_generator_seed_for_sim = 0x48937552
-    rand_noise_generator_seed_for_solver = 0x375bcb93
+    rand_noise_generator_seed_for_env = 4258915202
+    rand_noise_generator_seed_for_sim = 946026168
+    rand_noise_generator_seed_for_solver = 2162167893
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
     rand_noise_generator_for_solver = MersenneTwister(rand_noise_generator_seed_for_solver)
@@ -251,8 +251,8 @@ if(run_simulation_flag)
     #Initialize environment
     # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
-    env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
-    # env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
+    # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
+    env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
     k = generate_slowness_map_from_given_environment(env,2.0)
     discretization = [0.1,0.1]
     source = CartesianIndex(250,1000)
