@@ -576,3 +576,27 @@ function is_there_immediate_collision_with_pedestrians(world, pedestrian_distanc
     end
     return false
 end
+
+function calculate_mean_and_variance_from_given_dict(given_dict)
+    total_sum = 0.0
+    total_valid_entries = 0
+    for k in keys(given_dict)
+        if(given_dict[k] != nothing)
+            total_sum += given_dict[k]
+            total_valid_entries += 1
+        end
+    end
+
+    given_dict_mean = total_sum/total_valid_entries
+    given_dict_var = 0.0
+
+    for k in keys(given_dict)
+        if(given_dict[k] != nothing)
+            given_dict_var += ( (given_dict[k] - given_dict_mean)^2 )
+        end
+    end
+
+    given_dict_var = given_dict_var/(total_valid_entries-1)
+
+    return given_dict_mean, given_dict_var
+end
