@@ -1,5 +1,5 @@
 #=
-expt_file_name = "./scenario_4/2D/details_expt_23.jld2";
+expt_file_name = "./scenario_2/2D/risky_scenarios/expt_50.jld2";
 expt_details_dict = load(expt_file_name);
 test_time_step = "34";
 b = POMDP_2D_action_space_state_distribution(expt_details_dict["all_observed_environments"]["t="*test_time_step],expt_details_dict["all_generated_beliefs"]["t="*test_time_step]);
