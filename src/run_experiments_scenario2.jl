@@ -111,6 +111,9 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		planning_time_improvement_dict = OrderedDict()
 		sudden_stops_increment_dict = OrderedDict()
 
+		cart_path_2D_POMDP_planner_dict = OrderedDict()
+		cart_path_1D_POMDP_planner_dict = OrderedDict()
+
 		first_simulation_flag = true
 		gradient_info_matrix = nothing
 
@@ -186,9 +189,11 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	            total_safe_paths_2D_POMDP_planner += 1
 				total_sudden_stops_2D_POMDP_planner_dict[iteration_num] = just_2D_pomdp_number_of_sudden_stops
 	            total_sudden_stops_2D_POMDP_planner += just_2D_pomdp_number_of_sudden_stops
+				cart_path_2D_POMDP_planner_dict[iteration_num] = just_2D_pomdp_cart_throughout_path
 			else
 				total_time_taken_2D_POMDP_planner_dict[iteration_num] = nothing
 				total_sudden_stops_2D_POMDP_planner_dict[iteration_num] = nothing
+				cart_path_2D_POMDP_planner_dict[iteration_num] = just_2D_pomdp_cart_throughout_path
 	        end
 
 			#Run experiment for 1D action space POMDP planner
@@ -241,9 +246,11 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	            total_safe_paths_1D_POMDP_planner += 1
 				total_sudden_stops_1D_POMDP_planner_dict[iteration_num] = astar_1D_number_of_sudden_stops
 	            total_sudden_stops_1D_POMDP_planner += astar_1D_number_of_sudden_stops
+				cart_path_1D_POMDP_planner_dict[iteration_num] = astar_1D_cart_throughout_path
 	        else
 				total_time_taken_1D_POMDP_planner_dict[iteration_num] = nothing
 				total_sudden_stops_1D_POMDP_planner_dict[iteration_num] = nothing
+				cart_path_1D_POMDP_planner_dict[iteration_num] = astar_1D_cart_throughout_path
 	    	end
 
 			#Find how much was the time performance improvement and how much was the increment in sudden stop action
@@ -297,11 +304,38 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		println("Mean increment in number of sudden stops - ", string(mean_sudden_stops_increment))
 		println("Standard Deviation in increment of number of sudden stops is - ", string(sqrt(variance_sudden_stops_increment)))
 
-		# println("\n\n")
-		# println(mean_time_taken_2D_POMDP_planner, " ", mean_sudden_stops_2D_POMDP_planner, " ", mean_time_taken_1D_POMDP_planner, " ", mean_sudden_stops_1D_POMDP_planner)
-
-	    return average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
-	            average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner
+		results_dict = OrderedDict()
+		results_filename = "./RESULTS/scenario2_humans_"*string(num_humans)*"_experiments_"*string(num_simulations) * ".jld2"
+		results_dict["total_safe_paths_2D_POMDP_planner"] = total_safe_paths_2D_POMDP_planner
+		results_dict["total_time_taken_2D_POMDP_planner"] = total_time_taken_2D_POMDP_planner
+		results_dict["mean_time_taken_2D_POMDP_planner"] = mean_time_taken_2D_POMDP_planner
+		results_dict["variance_time_taken_2D_POMDP_planner"] = variance_time_taken_2D_POMDP_planner
+		results_dict["total_time_taken_2D_POMDP_planner_dict"] = total_time_taken_2D_POMDP_planner_dict
+		results_dict["total_sudden_stops_2D_POMDP_planner"] = total_sudden_stops_2D_POMDP_planner
+		results_dict["mean_sudden_stops_2D_POMDP_planner"] = mean_sudden_stops_2D_POMDP_planner
+		results_dict["variance_sudden_stops_2D_POMDP_planner"] = variance_sudden_stops_2D_POMDP_planner
+		results_dict["total_sudden_stops_2D_POMDP_planner_dict"] = total_sudden_stops_2D_POMDP_planner_dict
+		results_dict["total_safe_paths_1D_POMDP_planner"] = total_safe_paths_1D_POMDP_planner
+		results_dict["total_time_taken_1D_POMDP_planner"] = total_time_taken_1D_POMDP_planner
+		results_dict["mean_time_taken_1D_POMDP_planner"] = mean_time_taken_1D_POMDP_planner
+		results_dict["variance_time_taken_1D_POMDP_planner"] = variance_time_taken_1D_POMDP_planner
+		results_dict["total_time_taken_1D_POMDP_planner_dict"] = total_time_taken_1D_POMDP_planner_dict
+		results_dict["total_sudden_stops_1D_POMDP_planner"] = total_sudden_stops_1D_POMDP_planner
+		results_dict["mean_sudden_stops_1D_POMDP_planner"] = mean_sudden_stops_1D_POMDP_planner
+		results_dict["variance_sudden_stops_1D_POMDP_planner"] = variance_sudden_stops_1D_POMDP_planner
+		results_dict["total_sudden_stops_1D_POMDP_planner_dict"] = total_sudden_stops_1D_POMDP_planner_dict
+		results_dict["mean_planning_time_improvement"] = mean_planning_time_improvement
+		results_dict["variance_planning_time_improvement"] = variance_planning_time_improvement
+		results_dict["mean_sudden_stops_increment"] = mean_sudden_stops_increment
+		results_dict["variance_sudden_stops_increment"] = variance_sudden_stops_increment
+		results_dict["cart_path_2D_POMDP_planner_dict"] = cart_path_2D_POMDP_planner_dict
+		results_dict["cart_path_1D_POMDP_planner_dict"] = cart_path_1D_POMDP_planner_dict
+		#=
+		results_dict[""] =
+		results_dict[""] =
+		=#
+		save(results_filename, results_dict)
+		return
 	end
 
 	delete_old_txt_and_jld2_files_flag = true
@@ -326,8 +360,9 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		foreach(rm, filter(endswith(".jld2"), readdir(folder_location*"2D/risky_scenarios",join=true)))
 	end
 
-	average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,
-	average_time_taken_1D_POMDP_planner, total_safe_paths_1D_POMDP_planner, average_sudden_stops_1D_POMDP_planner = run_experiment_pipeline(300,100,false)
+	num_pedestrians = parse(Int,ARGS[1])
+	num_experiments = parse(Int,ARGS[2])
+	run_experiment_pipeline(num_pedestrians,num_experiments,false)
 
 	#=
 	average_time_taken_2D_POMDP_planner, total_safe_paths_2D_POMDP_planner, average_sudden_stops_2D_POMDP_planner,

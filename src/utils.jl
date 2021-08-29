@@ -538,7 +538,7 @@ function write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand
         all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
         time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag, filename)
 
-    d = Dict()
+    d = OrderedDict()
     d["rand_noise_generator_seed_for_env"] = rand_noise_generator_seed_for_env
     d["rand_noise_generator_seed_for_sim"] = rand_noise_generator_seed_for_sim
     # d["rand_noise_generator_seed_for_prm"] = rand_noise_generator_seed_for_prm
