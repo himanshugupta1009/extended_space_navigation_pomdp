@@ -10,13 +10,13 @@ supposed_a[1]*180/pi
 =#
 
 #=
-test_time_step = "92";
+test_time_step = "23";
 b = POMDP_2D_action_space_state_distribution(h["all_observed_environments"]["t="*test_time_step],h["all_generated_beliefs"]["t="*test_time_step]);
 copy_of_planner = deepcopy(h["all_planners"]["t="*test_time_step]);
 supposed_a, supposed_info = action_info(copy_of_planner, b);
 inchrome(D3Tree(supposed_info[:tree]))
 supposed_a
-nchrome(D3Tree(supposed_info[:tree]))
+inchrome(D3Tree(supposed_info[:tree]))
 =#
 
 
