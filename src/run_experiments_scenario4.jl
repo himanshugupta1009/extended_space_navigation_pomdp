@@ -49,7 +49,7 @@ end
 
 discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
 isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0]
+actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
 
 function run_experiment_for_given_world_and_noise_with_1D_POMDP_planner(world, rand_noise_generator_for_sim, iteration_num, output_filename, create_gif_flag=false)
 
