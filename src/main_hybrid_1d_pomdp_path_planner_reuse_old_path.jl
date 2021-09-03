@@ -141,7 +141,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                     b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
                     a, info = action_info(planner, b)
                     check_consistency_personal_copy(io,planner.rs)
-                    if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold+m.world.cart.L))
+                    if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold))
                         if(env_right_now.cart.v == 1.0)
                             a = -1.0
                         elseif(env_right_now.cart.v == m.max_cart_speed)

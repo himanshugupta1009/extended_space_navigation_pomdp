@@ -96,7 +96,7 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
                 a, info = action_info(planner, b)
                 check_consistency_personal_copy(io,planner.rs)
-                if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold+m.world.cart.L))
+                if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold))
                     if(env_right_now.cart.v == 1.0)
                         a = POMDP_2D_action_type(0.0,-1.0,false)
                     elseif(env_right_now.cart.v == m.max_cart_speed)
@@ -220,29 +220,29 @@ function get_actions_holonomic_fmm(m::POMDP_Planner_2D_action_space,b)
             POMDP_2D_action_type(-pi/12,0.0,false), POMDP_2D_action_type(0.0,-1.0,false),
             POMDP_2D_action_type(0.0,0.0,false),POMDP_2D_action_type(0.0,1.0,false),
             POMDP_2D_action_type(pi/12,0.0,false),POMDP_2D_action_type(pi/6,0.0,false),
-            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true)]
+            POMDP_2D_action_type(pi/4,0.0,false), POMDP_2D_action_type(-10.0,0.0,true),
+            POMDP_2D_action_type(-10.0,-10.0,true)]
     end
     return a
 end
 
 # lookup_table = nothing
 gr()
-run_simulation_flag = false
+run_simulation_flag = true
 write_to_file_flag = false
 create_gif_flag = true
 
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
-    # rand_noise_generator_seed_for_env = rand(UInt32)
-    # rand_noise_generator_seed_for_sim = rand(UInt32)
-    # rand_noise_generator_seed_for_prm = 11
+    rand_noise_generator_seed_for_env = rand(UInt32)
+    rand_noise_generator_seed_for_sim = rand(UInt32)
     # rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 4258915202
-    rand_noise_generator_seed_for_sim = 946026168
+    rand_noise_generator_seed_for_env = 1504037865
+    rand_noise_generator_seed_for_sim = 2043048065
     rand_noise_generator_seed_for_solver = 2162167893
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
@@ -305,7 +305,8 @@ if(run_simulation_flag)
         gif(anim, "just_2D_action_space_pomdp_planner_run.gif", fps = 2)
     end
 
-    if(write_to_file_flag)
+    if(write_to_file_flag || just_2D_pomdp_number_risks != 0 || just_2D_pomdp_cart_ran_into_boundary_wall_flag
+                || just_2D_pomdp_cart_ran_into_static_obstacle_flag || !just_2D_pomdp_experiment_success_flag || !just_2D_pomdp_cart_reached_goal_flag)
         expt_file_name = "expt_details_just_2d_action_space_pomdp_planner.jld2"
         write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
                 solver.rng.seed[1],just_2D_pomdp_all_gif_environments, just_2D_pomdp_all_observed_environments,
@@ -321,11 +322,13 @@ end
 #=
 expt_file_name = "expt_details_just_2d_action_space_pomdp_planner.jld2";
 expt_details_dict = load(expt_file_name);
-test_time_step = "10";
+test_time_step = "9";
 b = POMDP_2D_action_space_state_distribution(expt_details_dict["all_observed_environments"]["t="*test_time_step],expt_details_dict["all_generated_beliefs"]["t="*test_time_step]);
 copy_of_planner = deepcopy(expt_details_dict["all_planners"]["t="*test_time_step]);
 supposed_a, supposed_info = action_info(copy_of_planner, b);
-supposed_a[1]*180/pi
+supposed_a
+inchrome(D3Tree(supposed_info[:tree]))
+display_env( expt_details_dict["all_observed_environments"]["t="*test_time_step] )
 =#
 
 #=
