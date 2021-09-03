@@ -101,6 +101,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                         a = POMDP_2D_action_type(0.0,-1.0,false)
                     elseif(env_right_now.cart.v == m.max_cart_speed)
                         a = POMDP_2D_action_type(-10.0,-10.0,false)
+                    elseif(env_right_now.cart.v == 0.0)
+                        a = POMDP_2D_action_type(0.0,0.0,false)
                     end
                 end
                 write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string(a) )
@@ -228,7 +230,7 @@ end
 
 # lookup_table = nothing
 gr()
-run_simulation_flag = true
+run_simulation_flag = false
 write_to_file_flag = false
 create_gif_flag = true
 

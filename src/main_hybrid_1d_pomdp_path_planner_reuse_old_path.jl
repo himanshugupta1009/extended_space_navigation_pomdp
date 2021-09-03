@@ -146,6 +146,8 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                             a = -1.0
                         elseif(env_right_now.cart.v == m.max_cart_speed)
                             a = -10.0
+                        elseif(env_right_now.cart.v==0.0)
+                            a = 0.0
                         end
                     end
                     all_generated_trees[dict_key] = deepcopy(info)
