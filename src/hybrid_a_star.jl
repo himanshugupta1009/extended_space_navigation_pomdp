@@ -221,9 +221,9 @@ function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env
 
     #Action Set
     set_of_delta_angles = Array{Float64,1}([0.0])
-    for i in 1:9
-        push!(set_of_delta_angles, float(-5*i*pi/180))
-        push!(set_of_delta_angles, float(5*i*pi/180))
+    for i in 1:18
+        push!(set_of_delta_angles, float(-10*i*pi/180))
+        push!(set_of_delta_angles, float(10*i*pi/180))
     end
 
     #delta_t = 1 second
