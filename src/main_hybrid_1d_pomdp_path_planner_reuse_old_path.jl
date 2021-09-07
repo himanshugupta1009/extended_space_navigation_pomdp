@@ -16,7 +16,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     lidar_range = 30
     num_humans_to_care_about_while_generating_hybrid_astar_path = 6
     num_humans_to_care_about_while_pomdp_planning = 6
-    cone_half_angle::Float64 = (2/3)*pi
+    cone_half_angle::Float64 = (1)*pi
     number_of_sudden_stops = 0
     cart_ran_into_boundary_wall_flag = false
     cart_ran_into_static_obstacle_flag = false
@@ -57,7 +57,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     cart_throughout_path[dict_key] = copy(env_right_now.cart)
     #Try to generate the Hybrid A* path
     humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,initial_belief,
-                                                        num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
+                                                        num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold, cone_half_angle)
     hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
         env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
     if(length(hybrid_a_star_path)!= 0)
@@ -74,7 +74,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                         env_right_now,initial_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios, time_taken_by_cart,
                                                         num_humans_to_care_about_while_pomdp_planning,cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                        MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ) ,io )
+                                                        user_defined_rng, io )
     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
 
@@ -114,7 +114,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                     current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                                         env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios,
                                                                         time_taken_by_cart,num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range,
-                                                                        m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),io )
+                                                                        m.pedestrian_distance_threshold, user_defined_rng, io )
 
                     current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                         env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
@@ -140,6 +140,16 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                     all_planners[dict_key] = deepcopy(planner)
                     b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
                     a, info = action_info(planner, b)
+                    check_consistency_personal_copy(io,planner.rs)
+                    if(is_there_immediate_collision_with_pedestrians(m.world, m.pedestrian_distance_threshold))
+                        if(env_right_now.cart.v == 1.0)
+                            a = -1.0
+                        elseif(env_right_now.cart.v == m.max_cart_speed)
+                            a = -10.0
+                        elseif(env_right_now.cart.v==0.0)
+                            a = 0.0
+                        end
+                    end
                     all_generated_trees[dict_key] = deepcopy(info)
                     all_actions[dict_key] = a
                     write_and_print( io, "Action chosen by 1D action space speed POMDP planner: " * string(a) )
@@ -155,7 +165,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                         current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_cart_and_pedestrians_and_generate_gif_environments_when_cart_moving(
                                                                             env_right_now,current_belief_over_complete_cart_lidar_data, all_gif_environments, all_risky_scenarios, time_taken_by_cart,
                                                                             num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range, m.pedestrian_distance_threshold,
-                                                                            MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),io )
+                                                                            user_defined_rng, io )
 
                         current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
@@ -165,7 +175,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                         current_belief_over_complete_cart_lidar_data, risks_in_simulation = hybrid_astar_1D_pomdp_simulate_pedestrians_and_generate_gif_environments_when_cart_stationary(
                                                                             env_right_now,current_belief_over_complete_cart_lidar_data,all_gif_environments, all_risky_scenarios,
                                                                             time_taken_by_cart, num_humans_to_care_about_while_pomdp_planning, cone_half_angle, lidar_range,
-                                                                            m.pedestrian_distance_threshold, MersenneTwister( Int64( floor( 100*rand(user_defined_rng) ) ) ),io )
+                                                                            m.pedestrian_distance_threshold,user_defined_rng,io )
 
                         current_belief =  get_belief_for_selected_humans_from_belief_over_complete_lidar_data(current_belief_over_complete_cart_lidar_data,
                                                                             env_right_now.complete_cart_lidar_data, env_right_now.cart_lidar_data)
@@ -234,21 +244,21 @@ end
 
 gr()
 run_simulation_flag = false
-write_to_file_flag = true
-create_gif_flag = false
+write_to_file_flag = false
+create_gif_flag = true
 
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
-    # rand_noise_generator_seed_for_env = rand(UInt32)
-    # rand_noise_generator_seed_for_sim = rand(UInt32)
+    rand_noise_generator_seed_for_env = rand(UInt32)
+    rand_noise_generator_seed_for_sim = rand(UInt32)
     # rand_noise_generator_seed_for_prm = 11
     # rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 2440149026
-    rand_noise_generator_seed_for_sim = 599295736
+    # rand_noise_generator_seed_for_env = 2440149026
+    # rand_noise_generator_seed_for_sim = 599295736
     rand_noise_generator_seed_for_prm = 11
     rand_noise_generator_seed_for_solver = 396721398
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
@@ -279,7 +289,7 @@ if(run_simulation_flag)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
     #         calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf, max_trials=50, tree_in_info=true)
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
-            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf, max_trials=50, tree_in_info=true,
+            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=0.3, tree_in_info=true,
             rng=rand_noise_generator_for_solver)
 
     write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
