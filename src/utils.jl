@@ -153,7 +153,7 @@ end
 function get_heading_angle(human_x, human_y, cart_x, cart_y)
 
     # NOTE: Angle returned by this function is always wrapped between 0 and 2pi
-    
+
     #First Quadrant
     if(human_x >= cart_x && human_y >= cart_y)
         if(human_x == cart_x)
@@ -566,4 +566,38 @@ end
 function find_distance_between_two_points(p1_x,p1_y, p2_x, p2_y)
     euclidean_distance = ((p1_x - p2_x)^2 + (p1_y - p2_y)^2)^0.5
     return euclidean_distance
+end
+
+
+function is_there_immediate_collision_with_pedestrians(world, pedestrian_distance_threshold)
+    for human in world.complete_cart_lidar_data
+        if( find_if_two_circles_intersect(world.cart.x, world.cart.y, world.cart.L,human.x, human.y, pedestrian_distance_threshold) )
+            return true
+        end
+    end
+    return false
+end
+
+function calculate_mean_and_variance_from_given_dict(given_dict)
+    total_sum = 0.0
+    total_valid_entries = 0
+    for k in keys(given_dict)
+        if(given_dict[k] != nothing)
+            total_sum += given_dict[k]
+            total_valid_entries += 1
+        end
+    end
+
+    given_dict_mean = total_sum/total_valid_entries
+    given_dict_var = 0.0
+
+    for k in keys(given_dict)
+        if(given_dict[k] != nothing)
+            given_dict_var += ( (given_dict[k] - given_dict_mean)^2 )
+        end
+    end
+
+    given_dict_var = given_dict_var/(total_valid_entries-1)
+
+    return given_dict_mean, given_dict_var
 end
