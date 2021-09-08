@@ -47,7 +47,7 @@ mutable struct POMDP_Planner_2D_action_space <: POMDPs.POMDP{POMDP_state_2D_acti
     max_cart_speed::Float64
     world::experiment_environment
     prm_details::Array{prm_info_struct,1}
-    lookup_table::Array{lookup_table_struct,2}
+    lookup_table::Array{lookup_table_struct,3}
     last_prm_vertex_visited::Int
     next_prm_vertex_to_be_visited::Int
     last_prm_vertex_crossed_flag::Bool
@@ -331,7 +331,7 @@ end
 function goal_reward_pomdp_planning_2D_action_space(s, distance_threshold, goal_reached_flag, goal_reward)
     total_reward = 0.0
     if(goal_reached_flag)
-        println("Wow, goal reached")
+        # println("Wow, goal reached")
         total_reward = goal_reward
     else
         euclidean_distance = ((s.cart.x - s.cart.goal.x)^2 + (s.cart.y - s.cart.goal.y)^2)^0.5
@@ -351,8 +351,8 @@ end
 
 function immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, penalty)
     if(immediate_stop_flag)
-        #return penalty/2.0
-        return -50.0
+        return penalty/10.0
+        # return -50.0
     else
         return 0.0
     end
@@ -376,7 +376,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
     observed_positions = location[]
 
     if(is_within_range_check_with_points(s.cart.x,s.cart.y, s.cart.goal.x, s.cart.goal.y, m.cart_goal_reached_distance_threshold))
-        #println("Goal reached")
+        # println("Goal reached")
         new_cart_position = (-100.0, -100.0, -100.0)
         cart_reached_goal_flag = true
         new_cart_velocity = clamp(s.cart.v + a.delta_velocity, 0.0, m.max_cart_speed)
@@ -422,7 +422,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         else
             # Simulate all the pedestrians
             for human in s.pedestrians
-                if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L+0.5, human.x, human.y, m.pedestrian_distance_threshold) )
+                if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L, human.x, human.y, m.pedestrian_distance_threshold) )
                     new_cart_position = (-100.0, -100.0, -100.0)
                     collision_with_pedestrian_flag = true
                     new_human_states = human_state[]
@@ -443,7 +443,7 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
                         for human_index in 1:length(s.pedestrians)
                             intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
                                                                             new_human_states[human_index].x,new_human_states[human_index].y, (1/num_time_intervals)*(time_index-1) )
-                            if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
+                            if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L,
                                                         intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
                                 new_cart_position = (-100.0, -100.0, -100.0)
                                 collision_with_pedestrian_flag = true
@@ -598,9 +598,9 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
                 if(s.next_prm_vertex_num == -1)
                     x_point =  clamp(floor(Int64,s.cart.x/ 1.0)+1,1,100)
                     y_point =  clamp(floor(Int64,s.cart.y/ 1.0)+1,1,100)
-                    # theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
+                    theta_point = clamp(floor(Int64,s.cart.theta/(pi/18))+1,1,36)
                     # nearest_prm_point -> Format (vertex_num, x_coordinate, y_coordinate, prm_dist_to_goal)
-                    nearest_prm_point = m.lookup_table[x_point,y_point]
+                    nearest_prm_point = m.lookup_table[x_point,y_point,theta_point]
                     first_execution_flag = false
                     # println("Hey, first_execution_flag is ", first_execution_flag)
                 else
@@ -608,10 +608,6 @@ function calculate_lower_bound_policy_pomdp_planning_2D_action_space(m,b)
                         nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
                                                                     s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y)
                     else
-                        if(length(m.prm_details[s.next_prm_vertex_num].path_to_goal) == 1)
-                            println(s)
-                            println(m.prm_details[s.next_prm_vertex_num])
-                        end
                         next_to_next_vertex = m.prm_details[s.next_prm_vertex_num].path_to_goal[2]
                         nearest_prm_point = lookup_table_struct(s.next_prm_vertex_num,s.next_prm_vertex_x,s.next_prm_vertex_y,
                                                                 next_to_next_vertex.vertex_num,next_to_next_vertex.x, next_to_next_vertex.y)
