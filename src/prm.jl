@@ -166,7 +166,8 @@ function generate_prm_edges(world, graph, num_nearest_nebhrs)
     return dist_dict
 end
 
-function generate_prm_points_coordinates_lookup_table_holonomic(world, graph)
+#Using x and y coordinates only, no theta
+function generate_prm_points_coordinates_lookup_table_holonomic_using_x_y(world, graph)
     discretization_width_in_x = 1.0
     discretization_width_in_y = 1.0
     lookup_table = Array{lookup_table_struct,2}(undef,100,100)
@@ -218,6 +219,51 @@ function generate_prm_points_coordinates_lookup_table_holonomic(world, graph)
     return lookup_table
 end
 
+function generate_prm_points_coordinates_lookup_table_holonomic_using_x_y_theta(world, graph)
+    discretization_width_in_x = 1.0
+    discretization_width_in_y = 1.0
+    discretization_width_in_theta = 10     #in degrees
+    lookup_table = Array{lookup_table_struct,3}(undef,100,100,36)
+
+    for i in 1:(world.length/discretization_width_in_x)
+        for j in 1:(world.breadth/discretization_width_in_y)
+            for k in 1:(360/discretization_width_in_theta)
+                println("Doing it for this i and j at the moment " * string(i)* ","* string(j))
+                x_point = ( (i*discretization_width_in_x) + ((i-1)*discretization_width_in_x) )/ 2
+                y_point = ( (j*discretization_width_in_y) + ((j-1)*discretization_width_in_y) )/ 2
+                theta_point = ( (k*discretization_width_in_theta) + ((k-1)*discretization_width_in_theta) )/ 2
+                theta_point = theta_point*pi/180  #need to be in radians
+                closest_prm_vertex = get_nearest_prm_point_in_cone(x_point,y_point,theta_point,graph,world)
+                if(closest_prm_vertex == -1)
+                    closest_prm_vertex_x = -1
+                    closest_prm_vertex_y = -1
+                    second_prm_vertex = -1
+                    second_prm_vertex_x = -1
+                    second_prm_vertex_y = -1
+                elseif( length(get_prop(graph,closest_prm_vertex,:path_to_goal)) == 1 )
+                    closest_prm_vertex_x = get_prop(graph,closest_prm_vertex,:x)
+                    closest_prm_vertex_y = get_prop(graph,closest_prm_vertex,:y)
+                    second_prm_vertex = closest_prm_vertex
+                    second_prm_vertex_x = closest_prm_vertex_x
+                    second_prm_vertex_y = closest_prm_vertex_y
+                else
+                    closest_prm_vertex_x = get_prop(graph,closest_prm_vertex,:x)
+                    closest_prm_vertex_y = get_prop(graph,closest_prm_vertex,:y)
+                    second_prm_vertex = get_prop(graph,closest_prm_vertex,:path_to_goal)[2]
+                    second_prm_vertex = second_prm_vertex.vertex_num
+                    second_prm_vertex_x = get_prop(graph,second_prm_vertex,:x)
+                    second_prm_vertex_y = get_prop(graph,second_prm_vertex,:y)
+                end
+
+                struct_to_be_written = lookup_table_struct(closest_prm_vertex, closest_prm_vertex_x, closest_prm_vertex_y, second_prm_vertex,
+                                                                        second_prm_vertex_x, second_prm_vertex_y)
+                lookup_table[Int(i),Int(j),Int(k)] = struct_to_be_written
+            end
+        end
+    end
+    return lookup_table
+end
+
 function generate_prm_points_lookup_table_non_holonomic(world, graph)
     discretization_width_in_x = 1.0
     discretization_width_in_y = 1.0
@@ -254,34 +300,44 @@ function generate_prm_points_lookup_table_non_holonomic(world, graph)
     return lookup_table
 end
 
-function get_nearest_prm_point_in_cone(x,y,theta,prm,cone_half_angle::Float64=(2*pi/9.0))
+function get_nearest_prm_point_in_cone(x,y,theta,prm,world,cone_half_angle::Float64=(2*pi/9.0))
 
-    closest_prm_vertex = -1
-    closest_dist_so_far = Inf
+    closest_prm_vertex_in_cone = -1
+    closest_dist_so_far_for_cone = Inf
+    closest_prm_vertex_overall = -1
+    closest_dist_so_far_overall = Inf
 
     for i in 1:nv(prm)
         angle_between_given_point_and_prm_vertex = get_heading_angle(get_prop(prm,i,:x), get_prop(prm,i,:y), x, y)
         difference_in_angles = abs(theta - angle_between_given_point_and_prm_vertex)
-        if(difference_in_angles <= cone_half_angle)
-            euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
-            if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far)
-                 closest_prm_vertex = i
-                 closest_dist_so_far = euclidean_distance + get_prop(prm,i,:dist_to_goal)
-            end
-        elseif ( (2*pi - difference_in_angles) <= cone_half_angle )
-            euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
-            if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far)
-                 closest_prm_vertex = i
-                 closest_dist_so_far = euclidean_distance + get_prop(prm,i,:dist_to_goal)
-            end
-        else
+        is_traversal_possible = check_if_edge_can_exist_between_p1_and_p2(x,y,get_prop(graph,i,:x), get_prop(graph,i,:y),world)
+        if(!is_traversal_possible)
             continue
+        else
+            euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
+            if(difference_in_angles <= cone_half_angle)
+                # euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
+                if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far_for_cone)
+                     closest_prm_vertex_in_cone = i
+                     closest_dist_so_far_for_cone = euclidean_distance + get_prop(prm,i,:dist_to_goal)
+                end
+            elseif ( (2*pi - difference_in_angles) <= cone_half_angle )
+                # euclidean_distance = (x - get_prop(prm,i,:x))^2 + (y - get_prop(prm,i,:y))^2
+                if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far_for_cone)
+                     closest_prm_vertex_in_cone = i
+                     closest_dist_so_far_for_cone = euclidean_distance + get_prop(prm,i,:dist_to_goal)
+                end
+            end
+            if(euclidean_distance + get_prop(prm,i,:dist_to_goal) < closest_dist_so_far_overall)
+                 closest_prm_vertex_overall = i
+                 closest_dist_so_far_overall = euclidean_distance + get_prop(prm,i,:dist_to_goal)
+            end
         end
     end
-    if(closest_prm_vertex!=-1)
-        return (closest_prm_vertex, get_prop(prm,closest_prm_vertex,:x), get_prop(prm,closest_prm_vertex,:y), get_prop(prm,closest_prm_vertex,:dist_to_goal))
+    if(closest_prm_vertex_in_cone!=-1)
+        return closest_prm_vertex_in_cone
     else
-        return (closest_prm_vertex, 0.0, 0.0, 0.0)
+        return closest_prm_vertex_overall
     end
 end
 
@@ -358,6 +414,22 @@ function generate_prm_points_coordinates_lookup_table_non_holonomic(world, graph
         end
     end
     return lookup_table
+end
+
+function get_path_from_point_to_goal_using_prm(x, y, theta, lookup_table, prm_details)
+    x_point =  clamp(floor(Int64,x/ 1.0)+1,1,100)
+    y_point =  clamp(floor(Int64,y/ 1.0)+1,1,100)
+    theta_point = clamp(floor(Int64,theta/(pi/18))+1,1,36)
+    nearest_prm_point = lookup_table[x_point,y_point, theta_point]
+    println(nearest_prm_point)
+    path_x = [x]
+    path_y = [y]
+    for v in prm_details[nearest_prm_point.closest_prm_vertex_num].path_to_goal
+        push!(path_x, v.x)
+        push!(path_y, v.y)
+    end
+    println()
+    return path_x, path_y
 end
 
 #=
