@@ -277,24 +277,17 @@ function display_env(env::experiment_environment, time_step=nothing, gif_env_num
     if(length(env.cart_hybrid_astar_path)!=0)
         #Plotting for normal environments that are 1 sec apart
         if(gif_env_num==nothing)
-            # initial_state = [env.cart.x,env.cart.y,env.cart.theta]
-            current_x, current_y, current_theta = env_right_now.cart.x, env_right_now.cart.y, env_right_now.cart.theta
+            current_x, current_y, current_theta = env.cart.x, env.cart.y, env.cart.theta
             path_x, path_y = [env.cart.x],[env.cart.y]
             arc_length = 1.0
+            time_interval = 1.0
             for delta_angle in env.cart_hybrid_astar_path
-                new_theta = wrap_between_0_and_2Pi(current_theta+delta_angle)
-                new_x = current_x + arc_length*cos(new_theta)
-                new_y = current_y + arc_length*sin(new_theta)
-                final_orientation_angle = wrap_between_0_and_2Pi(current_theta+delta_angle)
-                for j in 1:10
-                    new_theta = wrap_between_0_and_2Pi(current_theta+(delta_angle*0.1))
-                    new_x = current_x + arc_length*cos(final_orientation_angle)*(0.1)
-                    new_y = current_y + arc_length*sin(final_orientation_angle)*(0.1)
-                    append!(path_x, new_x)
-                    append!(path_y, new_y)
-                    # append!(cart_path_theta, new_theta)
-                    current_x, current_y,current_theta = new_x,new_y,new_theta
-                end
+                new_theta = wrap_between_0_and_2Pi(current_theta + delta_angle)
+                new_x = current_x + arc_length*cos(new_theta)*time_interval
+                new_y = current_y + arc_length*sin(new_theta)*time_interval
+                push!(path_x,new_x)
+                push!(path_y,new_y)
+                current_x, current_y,current_theta = new_x,new_y,new_theta
             end
             plot!(path_x,path_y,color="black")
         #Plotting for gif environments that are 0.1 sec apart

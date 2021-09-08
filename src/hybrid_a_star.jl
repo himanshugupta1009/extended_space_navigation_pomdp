@@ -58,10 +58,10 @@ function get_path(current_node)
     return reverse(delta_angle_controls_sequence)
 end
 
-function get_new_x_y_theta(current_x, current_y, current_theta, delta_angle,time_interval, env, arc_length)
-    new_theta = wrap_between_0_and_2Pi(current_theta+delta_angle)
-    new_x = current_x + arc_length*cos(new_theta)
-    new_y = current_y + arc_length*sin(new_theta)
+function get_new_x_y_theta(current_x, current_y, current_theta, delta_angle, time_interval, env, arc_length)
+    new_theta = wrap_between_0_and_2Pi(current_theta + delta_angle)
+    new_x = current_x + arc_length*cos(new_theta)*time_interval
+    new_y = current_y + arc_length*sin(new_theta)*time_interval
     return float(new_x), float(new_y), float(new_theta)
 end
 

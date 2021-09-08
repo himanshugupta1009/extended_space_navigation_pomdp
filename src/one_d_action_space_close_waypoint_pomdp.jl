@@ -155,6 +155,7 @@ end
 
 function update_cart_position_pomdp_planning(current_cart_position, new_cart_velocity, starting_index, world)
     time_interval = 1.0/new_cart_velocity
+    # arc_length = new_cart_velocity
     current_x, current_y, current_theta = current_cart_position.x, current_cart_position.y, current_cart_position.theta
     length_hybrid_a_star_path = length(world.cart_hybrid_astar_path)
     cart_path = Tuple{Float64,Float64,Float64}[ (Float64(current_x), Float64(current_y), Float64(current_theta)) ]
@@ -163,16 +164,16 @@ function update_cart_position_pomdp_planning(current_cart_position, new_cart_vel
     else
         for i in (1:new_cart_velocity)
             #@show(starting_index, length(world.cart_hybrid_astar_path))
-            steering_angle = world.cart_hybrid_astar_path[starting_index]
-            if(steering_angle == 0.0)
+            delta_angle = world.cart_hybrid_astar_path[starting_index]
+            # final_orientation_angle = wrap_between_0_and_2Pi(current_theta+delta_angle)
+            if(delta_angle == 0.0)
                 new_theta = current_theta
                 new_x = current_x + new_cart_velocity*cos(current_theta)*time_interval
                 new_y = current_y + new_cart_velocity*sin(current_theta)*time_interval
             else
-                new_theta = current_theta + (new_cart_velocity * tan(steering_angle) * time_interval / world.cart.L)
-                new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + ((world.cart.L / tan(steering_angle)) * (sin(new_theta) - sin(current_theta)))
-                new_y = current_y + ((world.cart.L / tan(steering_angle)) * (cos(current_theta) - cos(new_theta)))
+                new_theta = wrap_between_0_and_2Pi(current_theta+delta_angle)
+                new_x = current_x + new_cart_velocity*cos(new_theta)*(time_interval)
+                new_y = current_y + new_cart_velocity*sin(new_theta)*(time_interval)
             end
             push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
             current_x, current_y,current_theta = new_x,new_y,new_theta
@@ -301,7 +302,7 @@ function POMDPs.gen(m::POMDP_Planner_1D_action_space, s, a, rng)
                     for human_index in 1:length(s.pedestrians)
                         intermediate_human_location = get_pedestrian_intermediate_trajectory_point(s.pedestrians[human_index].x,s.pedestrians[human_index].y,
                                                                         new_human_states[human_index].x,new_human_states[human_index].y, (1/new_cart_velocity)*(time_index-1) )
-                        if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L+0.5,
+                        if( find_if_two_circles_intersect(cart_path[time_index][1], cart_path[time_index][2], s.cart.L,
                                                     intermediate_human_location[1], intermediate_human_location[2], m.pedestrian_distance_threshold) )
                             new_cart_position = (-100.0, -100.0, -100.0)
                             collision_with_pedestrian_flag = true
@@ -398,8 +399,8 @@ end
 function calculate_lower_bound_policy_pomdp_planning_1D_action_space(b)
     #Implement a reactive controller for your lower bound
     action_to_be_returned = 1.0
-    d_far_threshold = 5.0
-    d_near_threshold = 2.0
+    d_far_threshold = 6.0
+    d_near_threshold = 4.0
     for (s, w) in weighted_particles(b)
         dist_to_closest_human = 200.0  #Some big number (not Inf) that is not feasible
         for human in s.pedestrians

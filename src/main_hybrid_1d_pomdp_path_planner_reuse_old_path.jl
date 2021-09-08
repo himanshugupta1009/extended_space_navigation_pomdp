@@ -88,7 +88,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     write_and_print( io, "Modified cart state = " * string(env_right_now.cart) )
     close(io)
 
-    try
+    # try
         #Start Simulating for t>1
         while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
             io = open(filename,"a")
@@ -102,7 +102,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
 
                 #Try to generate the Hybrid A* path
                 humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,current_belief,
-                                                                    num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
+                                                                    num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold,cone_half_angle)
                 hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
                     env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
 
@@ -208,14 +208,14 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
             end
             close(io)
         end
-    catch e
-        println("\n Things failed during the simulation. \n The error message is : \n ")
-        println(e)
-        experiment_success_flag = false
-        return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
-                all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
-                time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
-    end
+    # catch e
+    #     println("\n Things failed during the simulation. \n The error message is : \n ")
+    #     println(e)
+    #     experiment_success_flag = false
+    #     return all_gif_environments, all_observed_environments, all_generated_beliefs_using_complete_lidar_data, all_generated_beliefs,
+    #             all_generated_trees,all_risky_scenarios,all_actions,all_planners,cart_throughout_path, number_risks, number_of_sudden_stops,
+    #             time_taken_by_cart, cart_reached_goal_flag, cart_ran_into_static_obstacle_flag, cart_ran_into_boundary_wall_flag, experiment_success_flag
+    # end
     io = open(filename,"a")
 
     if(cart_reached_goal_flag == true)
@@ -250,15 +250,15 @@ create_gif_flag = true
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
-    rand_noise_generator_seed_for_env = rand(UInt32)
-    rand_noise_generator_seed_for_sim = rand(UInt32)
+    # rand_noise_generator_seed_for_env = rand(UInt32)
+    # rand_noise_generator_seed_for_sim = rand(UInt32)
     # rand_noise_generator_seed_for_prm = 11
     # rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    # rand_noise_generator_seed_for_env = 2440149026
-    # rand_noise_generator_seed_for_sim = 599295736
+    rand_noise_generator_seed_for_env = 2440149026
+    rand_noise_generator_seed_for_sim = 599295736
     rand_noise_generator_seed_for_prm = 11
     rand_noise_generator_seed_for_solver = 396721398
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
@@ -283,13 +283,13 @@ if(run_simulation_flag)
     golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,1.0,-100.0,1.0,1.0,1000.0,2.0,env_right_now,1)
     discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-    actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0]
+    actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
     #actions(::POMDP_Planner_1D_action_space) = Float64[-0.5, 0.0, 0.5, -10.0]
 
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
     #         calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf, max_trials=50, tree_in_info=true)
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
-            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=0.3, tree_in_info=true,
+            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf,max_trials=50, tree_in_info=true,
             rng=rand_noise_generator_for_solver)
 
     write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
@@ -331,4 +331,19 @@ anim = @animate for k ∈ keys(astar_1D_all_gif_environments)
     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
 end
 gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 20)
+=#
+
+
+
+#=
+test_time_step = "29";
+b = POMDP_1D_action_space_state_distribution(astar_1D_all_observed_environments["t="*test_time_step],astar_1D_all_generated_beliefs["t="*test_time_step],astar_1D_all_planners["t="*test_time_step].pomdp.start_path_index);
+copy_of_planner = deepcopy(astar_1D_all_planners["t="*test_time_step]);
+supposed_a, supposed_info = action_info(copy_of_planner, b);
+despot_tree = supposed_info[:tree];
+curr_scenario_belief = ARDESPOT.get_belief(despot_tree,1,deepcopy(astar_1D_all_planners["t="*test_time_step]).rs);
+ARDESPOT.lbound(copy_of_planner.bounds.lower, copy_of_planner.pomdp, curr_scenario_belief)
+ARDESPOT.ubound(copy_of_planner.bounds.upper, copy_of_planner.pomdp, curr_scenario_belief)
+
+supposed_a[1]*180/pi
 =#
