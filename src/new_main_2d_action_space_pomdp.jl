@@ -283,7 +283,7 @@ end
 
 # lookup_table = nothing
 gr()
-run_simulation_flag = true
+run_simulation_flag = false
 write_to_file_flag = false
 create_gif_flag = true
 
@@ -309,21 +309,23 @@ if(run_simulation_flag)
     #Initialize environment
     # env = generate_environment_no_obstacles(300, rand_noise_generator_for_env)
     # env = generate_environment_small_circular_obstacles(300, rand_noise_generator_for_env)
-    # env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
-    env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
+    env = generate_environment_large_circular_obstacles(300, rand_noise_generator_for_env)
+    # env = generate_environment_L_shaped_corridor(300, rand_noise_generator_for_env)
 
-    #Generate PRM and prm_details array
-    graph = generate_prm_vertices(500, rand_noise_generator_for_prm, env)
-    d = generate_prm_edges(env, graph, 10)
-    prm_details = Array{prm_info_struct,1}(undef,nv(graph))
-    for i in 1:nv(graph)
-       st = prm_info_struct(get_prop(graph,i,:x) , get_prop(graph,i,:y), get_prop(graph,i,:dist_to_goal), get_prop(graph,i,:path_to_goal))
-       prm_details[i] = st
-    end
 
-    #Generate Lookup Table
-    lookup_table = load("prm_hash_table_scenario4.jld2")["lookup_table"]
+    #Load prm_details and the lookup_table
+    prm_info_dict = load("prm_hash_table_scenario3.jld2")
+    lookup_table = prm_info_dict["lookup_table"]
+    prm_details = prm_info_dict["prm_details"]
     if(lookup_table == nothing)
+        #Generate PRM and prm_details array
+        graph = generate_prm_vertices(1000, rand_noise_generator_for_prm, env)
+        d = generate_prm_edges(env, graph, 10)
+        prm_details = Array{prm_info_struct,1}(undef,nv(graph))
+        for i in 1:nv(graph)
+           st = prm_info_struct(get_prop(graph,i,:x) , get_prop(graph,i,:y), get_prop(graph,i,:dist_to_goal), get_prop(graph,i,:path_to_goal))
+           prm_details[i] = st
+        end
         lookup_table = generate_prm_points_coordinates_lookup_table_holonomic_using_x_y_theta(env,graph)
     end
 
