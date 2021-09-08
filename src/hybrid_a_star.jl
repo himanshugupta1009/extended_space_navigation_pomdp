@@ -49,27 +49,19 @@ function calculate_heuristic_cost(node_x, node_y, node_theta, goal_x, goal_y, wo
 end
 
 function get_path(current_node)
-    steering_angle_controls_sequence = []
+    delta_angle_controls_sequence = []
     @show(current_node.actual_cost)
     while(current_node.parent!= nothing)
-        push!(steering_angle_controls_sequence, current_node.action_taken_to_reach_here)
+        push!(delta_angle_controls_sequence, current_node.action_taken_to_reach_here)
         current_node = current_node.parent
     end
-    return reverse(steering_angle_controls_sequence)
+    return reverse(delta_angle_controls_sequence)
 end
 
-function get_new_x_y_theta(current_x, current_y, current_theta, steering_angle,time_interval, env, arc_length)
-    if(steering_angle == 0.0)
-        new_theta = current_theta
-        new_x = current_x + arc_length*cos(current_theta)*time_interval
-        new_y = current_y + arc_length*sin(current_theta)*time_interval
-    else
-        new_theta = current_theta + (arc_length * tan(steering_angle) * time_interval / env.cart.L)
-        new_theta = wrap_between_0_and_2Pi(new_theta)
-
-        new_x = current_x + ((env.cart.L / tan(steering_angle)) * (sin(new_theta) - sin(current_theta)))
-        new_y = current_y + ((env.cart.L / tan(steering_angle)) * (cos(current_theta) - cos(new_theta)))
-    end
+function get_new_x_y_theta(current_x, current_y, current_theta, delta_angle,time_interval, env, arc_length)
+    new_theta = wrap_between_0_and_2Pi(current_theta+delta_angle)
+    new_x = current_x + arc_length*cos(new_theta)
+    new_y = current_y + arc_length*sin(new_theta)
     return float(new_x), float(new_y), float(new_theta)
 end
 
@@ -221,10 +213,11 @@ function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env
 
     #Action Set
     set_of_delta_angles = Array{Float64,1}([0.0])
-    for i in 1:18
-        push!(set_of_delta_angles, float(-10*i*pi/180))
-        push!(set_of_delta_angles, float(10*i*pi/180))
+    for i in 1:11
+        push!(set_of_delta_angles, float(-15*i*pi/180))
+        push!(set_of_delta_angles, float(15*i*pi/180))
     end
+    push!(set_of_delta_angles, float(pi))
 
     #delta_t = 1 second
     time_step = 1
@@ -272,7 +265,7 @@ function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env
         for delta in set_of_delta_angles
             steering_angle = atan((env.cart.L*delta)/arc_length)
             final_x,final_y,final_theta = get_new_x_y_theta(current_node.x, current_node.y,
-                current_node.theta, steering_angle, time_step, env, arc_length)
+                current_node.theta, delta, time_step, env, arc_length)
             discrete_x, discrete_y = get_discrete_state(env,final_x,final_y)
             discrete_theta = current_node.discrete_theta + round(delta*180/pi)
             node_key = "x"*string(discrete_x)*"y"*string(discrete_y)*"theta"*string(discrete_theta)
@@ -283,7 +276,7 @@ function hybrid_a_star_search(start_x, start_y, start_theta, goal_x, goal_y, env
                 final_x, final_y, obstacle_collision_cost, human_collision_cost, steering_angle,current_node.time_stamp+1)
             h = calculate_heuristic_cost(final_x, final_y, final_theta, goal_x, goal_y, env)
             new_node = graph_node(final_x, final_y, final_theta, g, h,
-                steering_angle, discrete_x, discrete_y,discrete_theta, current_node,current_node.time_stamp+1)
+                delta, discrete_x, discrete_y,discrete_theta, current_node,current_node.time_stamp+1)
             #println(new_node)
             if(new_node.actual_cost == Inf)
                 closed[node_key] = new_node
