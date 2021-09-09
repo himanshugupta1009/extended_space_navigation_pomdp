@@ -422,14 +422,16 @@ function POMDPs.gen(m::POMDP_Planner_2D_action_space, s, a, rng)
         else
             # Simulate all the pedestrians
             for human in s.pedestrians
-                if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L, human.x, human.y, m.pedestrian_distance_threshold) )
-                    new_cart_position = (-100.0, -100.0, -100.0)
-                    collision_with_pedestrian_flag = true
-                    new_human_states = human_state[]
-                    observed_positions = location[ location(-50.0,-50.0) ]
-                    # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
-                    # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
-                    break
+                if(s.cart.v!=0.0)
+                    if( find_if_two_circles_intersect(cart_path[1][1], cart_path[1][2], s.cart.L, human.x, human.y, m.pedestrian_distance_threshold) )
+                        new_cart_position = (-100.0, -100.0, -100.0)
+                        collision_with_pedestrian_flag = true
+                        new_human_states = human_state[]
+                        observed_positions = location[ location(-50.0,-50.0) ]
+                        # println("Collision with this human " ,s.pedestrians[human_index] , " ", time_index )
+                        # println("Cart's position is " ,cart_path[time_index] , "\nHuman's position is ", intermediate_human_location )
+                        break
+                    end
                 end
                 modified_human_state,observed_location = update_human_position_pomdp_planning(human, m.world, one_time_step, rng)
                 push!(new_human_states, modified_human_state)
@@ -541,7 +543,7 @@ function is_collision_state_pomdp_planning_2D_action_space(s,m)
         return true
     elseif(s.cart.v != 0.0)
         for human in s.pedestrians
-            if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold))
+            if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold + s.cart.L))
                 return true
             end
         end
