@@ -306,8 +306,8 @@ end
 
 function immediate_stop_penalty_pomdp_planning_2D_action_space(immediate_stop_flag, penalty)
     if(immediate_stop_flag)
-        #return penalty/2.0
-        return -50.0
+        return penalty/10.0
+        # return -50.0
     else
         return 0.0
     end
@@ -483,7 +483,7 @@ function is_collision_state_pomdp_planning_2D_action_space(s,m)
         return true
     elseif(s.cart.v != 0.0)
         for human in s.pedestrians
-            if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold))
+            if(is_within_range(location(s.cart.x,s.cart.y),location(human.x,human.y),m.pedestrian_distance_threshold + s.cart.L))
                 return true
             end
         end

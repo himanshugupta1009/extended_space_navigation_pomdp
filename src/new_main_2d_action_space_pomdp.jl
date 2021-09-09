@@ -243,8 +243,8 @@ if(run_simulation_flag)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 1504037865
-    rand_noise_generator_seed_for_sim = 2043048065
+    rand_noise_generator_seed_for_env = 4258915202
+    rand_noise_generator_seed_for_sim = 946026168
     rand_noise_generator_seed_for_solver = 2162167893
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
