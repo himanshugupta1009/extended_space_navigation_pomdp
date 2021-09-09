@@ -155,6 +155,7 @@ end
 
 function update_cart_position_pomdp_planning(current_cart_position, new_cart_velocity, starting_index, world)
     time_interval = 1.0/new_cart_velocity
+    # arc_length = new_cart_velocity
     current_x, current_y, current_theta = current_cart_position.x, current_cart_position.y, current_cart_position.theta
     length_hybrid_a_star_path = length(world.cart_hybrid_astar_path)
     cart_path = Tuple{Float64,Float64,Float64}[ (Float64(current_x), Float64(current_y), Float64(current_theta)) ]
@@ -163,16 +164,16 @@ function update_cart_position_pomdp_planning(current_cart_position, new_cart_vel
     else
         for i in (1:new_cart_velocity)
             #@show(starting_index, length(world.cart_hybrid_astar_path))
-            steering_angle = world.cart_hybrid_astar_path[starting_index]
-            if(steering_angle == 0.0)
+            delta_angle = world.cart_hybrid_astar_path[starting_index]
+            # final_orientation_angle = wrap_between_0_and_2Pi(current_theta+delta_angle)
+            if(delta_angle == 0.0)
                 new_theta = current_theta
                 new_x = current_x + new_cart_velocity*cos(current_theta)*time_interval
                 new_y = current_y + new_cart_velocity*sin(current_theta)*time_interval
             else
-                new_theta = current_theta + (new_cart_velocity * tan(steering_angle) * time_interval / world.cart.L)
-                new_theta = wrap_between_0_and_2Pi(new_theta)
-                new_x = current_x + ((world.cart.L / tan(steering_angle)) * (sin(new_theta) - sin(current_theta)))
-                new_y = current_y + ((world.cart.L / tan(steering_angle)) * (cos(current_theta) - cos(new_theta)))
+                new_theta = wrap_between_0_and_2Pi(current_theta+delta_angle)
+                new_x = current_x + new_cart_velocity*cos(new_theta)*(time_interval)
+                new_y = current_y + new_cart_velocity*sin(new_theta)*(time_interval)
             end
             push!(cart_path,(Float64(new_x), Float64(new_y), Float64(new_theta)))
             current_x, current_y,current_theta = new_x,new_y,new_theta
@@ -234,7 +235,7 @@ end
 
 function immediate_stop_penalty_pomdp_planning(immediate_stop_flag, penalty)
     if(immediate_stop_flag)
-        return penalty/2
+        return penalty/10.0
     else
         return 0.0
     end
@@ -361,7 +362,7 @@ function is_collision_state_pomdp_planning_1D_action_space(s,m)
         return false
     else
         for human in s.pedestrians
-            if( is_within_range_check_with_points(s.cart.x,s.cart.y, human.x, human.y, m.pedestrian_distance_threshold) )
+            if( is_within_range_check_with_points(s.cart.x,s.cart.y, human.x, human.y, m.pedestrian_distance_threshold+s.cart.L) )
                 return true
             end
         end

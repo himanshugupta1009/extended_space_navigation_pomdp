@@ -57,7 +57,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     cart_throughout_path[dict_key] = copy(env_right_now.cart)
     #Try to generate the Hybrid A* path
     humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,initial_belief,
-                                                        num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
+                                                        num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold, cone_half_angle)
     hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
         env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
     if(length(hybrid_a_star_path)!= 0)
@@ -102,7 +102,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
 
                 #Try to generate the Hybrid A* path
                 humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,current_belief,
-                                                                    num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold)
+                                                                    num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold,cone_half_angle)
                 hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
                     env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
 
@@ -280,7 +280,7 @@ if(run_simulation_flag)
     golfcart_1D_action_space_pomdp = POMDP_Planner_1D_action_space(0.97,1.0,-100.0,1.0,1.0,1000.0,2.0,env_right_now,1)
     discount(p::POMDP_Planner_1D_action_space) = p.discount_factor
     isterminal(::POMDP_Planner_1D_action_space, s::POMDP_state_1D_action_space) = is_terminal_state_pomdp_planning(s,location(-100.0,-100.0));
-    actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0]
+    actions(::POMDP_Planner_1D_action_space) = Float64[-1.0, 0.0, 1.0, -10.0]
     #actions(::POMDP_Planner_1D_action_space) = Float64[-0.5, 0.0, 0.5, -10.0]
 
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
@@ -328,4 +328,17 @@ anim = @animate for k ∈ keys(astar_1D_all_gif_environments)
     #savefig("./plots_just_2d_action_space_pomdp_planner/plot_"*all_gif_environments[i][1]*".png")
 end
 gif(anim, "resusing_old_hybrid_astar_path_1D_action_space_speed_pomdp_planner_run.gif", fps = 20)
+=#
+
+
+#=
+test_time_step = "29";
+b = POMDP_1D_action_space_state_distribution(astar_1D_all_observed_environments["t="*test_time_step],astar_1D_all_generated_beliefs["t="*test_time_step],astar_1D_all_planners["t="*test_time_step].pomdp.start_path_index);
+copy_of_planner = deepcopy(astar_1D_all_planners["t="*test_time_step]);
+supposed_a, supposed_info = action_info(copy_of_planner, b);
+despot_tree = supposed_info[:tree];
+curr_scenario_belief = ARDESPOT.get_belief(despot_tree,1,deepcopy(astar_1D_all_planners["t="*test_time_step]).rs);
+ARDESPOT.lbound(copy_of_planner.bounds.lower, copy_of_planner.pomdp, curr_scenario_belief)
+ARDESPOT.ubound(copy_of_planner.bounds.upper, copy_of_planner.pomdp, curr_scenario_belief)
+supposed_a[1]*180/pi
 =#
