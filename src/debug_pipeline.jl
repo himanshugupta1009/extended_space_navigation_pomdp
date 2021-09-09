@@ -10,7 +10,7 @@ supposed_a[1]*180/pi
 =#
 
 #=
-test_time_step = "27";
+test_time_step = "43";
 b = POMDP_2D_action_space_state_distribution(h["all_observed_environments"]["t="*test_time_step],h["all_generated_beliefs"]["t="*test_time_step]);
 copy_of_planner = deepcopy(h["all_planners"]["t="*test_time_step]);
 supposed_a, supposed_info = action_info(copy_of_planner, b);
@@ -109,6 +109,18 @@ copy_of_planner = deepcopy(planner);
 supposed_a, supposed_info = action_info(copy_of_planner, b);
 despot_tree = supposed_info[:tree];
 curr_scenario_belief = ARDESPOT.get_belief(despot_tree,1,deepcopy(just_2D_pomdp_all_planners["t="*test_time_step]).rs);
+ARDESPOT.lbound(copy_of_planner.bounds.lower, copy_of_planner.pomdp, curr_scenario_belief)
+ARDESPOT.ubound(copy_of_planner.bounds.upper, copy_of_planner.pomdp, curr_scenario_belief)
+=#
+
+
+#=
+test_time_step = "258";
+b = POMDP_2D_action_space_state_distribution(h["all_observed_environments"]["t="*test_time_step],h["all_generated_beliefs"]["t="*test_time_step]);
+copy_of_planner = deepcopy(planner);
+supposed_a, supposed_info = action_info(copy_of_planner, b);
+despot_tree = supposed_info[:tree];
+curr_scenario_belief = ARDESPOT.get_belief(despot_tree,1,deepcopy(planner.rs));
 ARDESPOT.lbound(copy_of_planner.bounds.lower, copy_of_planner.pomdp, curr_scenario_belief)
 ARDESPOT.ubound(copy_of_planner.bounds.upper, copy_of_planner.pomdp, curr_scenario_belief)
 =#
