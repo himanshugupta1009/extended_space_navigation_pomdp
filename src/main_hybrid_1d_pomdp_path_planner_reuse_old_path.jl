@@ -59,7 +59,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
     humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,initial_belief,
                                                         num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold, cone_half_angle)
     hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
-        env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
+        env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,10.0);
     if(length(hybrid_a_star_path)!= 0)
         env_right_now.cart_hybrid_astar_path = hybrid_a_star_path
     end
