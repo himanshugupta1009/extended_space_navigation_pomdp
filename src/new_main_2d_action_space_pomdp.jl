@@ -92,7 +92,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 #Solve POMDP to get the best action
                 # m = golfcart_2D_action_space_pomdp()
                 dict_key = "t="*string(time_taken_by_cart)
-                all_planners[dict_key] = deepcopy(planner)
+                # all_planners[dict_key] = deepcopy(planner)
+                all_planners[dict_key] = nothing
                 b = POMDP_2D_action_space_state_distribution(m.world,current_belief)
                 a, info = action_info(planner, b)
                 check_consistency_personal_copy(io,planner.rs)
@@ -107,7 +108,8 @@ function run_one_simulation_2D_POMDP_planner(env_right_now, user_defined_rng, m,
                 end
                 write_and_print( io, "Action chosen by 2D action space POMDP planner: " * string(a) )
                 dict_key = "t="*string(time_taken_by_cart)
-                all_generated_trees[dict_key] = deepcopy(info)
+                # all_generated_trees[dict_key] = deepcopy(info)
+                all_generated_trees[dict_key] = nothing
                 all_actions[dict_key] = a
 
                 if(env_right_now.cart.v!=0 && a.delta_velocity == -10.0)

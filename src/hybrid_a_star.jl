@@ -148,7 +148,7 @@ function get_action_cost(environment, humans_to_avoid, final_x::Float64, final_y
     end
 
     #Cost from obstacles
-    padding_radius = 2.0
+    padding_radius = 2.0 + environment.cart.L
     for obstacle in environment.obstacles
         euclidean_distance::Float64 = ( (final_x - obstacle.x)^2 + (final_y - obstacle.y)^2 )^ 0.5
         if(euclidean_distance >= obstacle.r + padding_radius)

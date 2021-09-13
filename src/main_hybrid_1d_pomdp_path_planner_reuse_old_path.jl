@@ -104,7 +104,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                 humans_to_avoid = get_nearest_n_pedestrians_hybrid_astar_search(env_right_now,current_belief,
                                                                     num_humans_to_care_about_while_generating_hybrid_astar_path,m.pedestrian_distance_threshold,cone_half_angle)
                 hybrid_a_star_path = @time hybrid_a_star_search(env_right_now.cart.x, env_right_now.cart.y,
-                    env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid,100.0);
+                    env_right_now.cart.theta, env_right_now.cart.goal.x, env_right_now.cart.goal.y, env_right_now, humans_to_avoid);
 
                 #If couldn't generate the path and no old path exists
                 if( (length(hybrid_a_star_path) == 0) && (length(env_right_now.cart_hybrid_astar_path) == 0) )
@@ -137,7 +137,8 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                     end
 
                     dict_key = "t="*string(time_taken_by_cart)
-                    all_planners[dict_key] = deepcopy(planner)
+                    # all_planners[dict_key] = deepcopy(planner)
+                    all_planners[dict_key] = nothing
                     b = POMDP_1D_action_space_state_distribution(m.world,current_belief,m.start_path_index)
                     a, info = action_info(planner, b)
                     check_consistency_personal_copy(io,planner.rs)
@@ -150,7 +151,8 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
                             a = 0.0
                         end
                     end
-                    all_generated_trees[dict_key] = deepcopy(info)
+                    # all_generated_trees[dict_key] = deepcopy(info)
+                    all_generated_trees[dict_key] = nothing
                     all_actions[dict_key] = a
                     write_and_print( io, "Action chosen by 1D action space speed POMDP planner: " * string(a) )
 
