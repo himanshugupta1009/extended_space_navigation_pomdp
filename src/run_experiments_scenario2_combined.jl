@@ -179,6 +179,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		#Set seed for different RNGs
 		rand_noise_generator_seed_for_env = rand(UInt32)
 	    rand_noise_generator_seed_for_sim = rand(UInt32)
+		rand_noise_generator_seed_for_prm = 11
 	    rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
 	    rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
@@ -211,7 +212,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		end
 
 		#Run experiment for 2D action space POMDP planner with FMM
-		output_filename_2D_AS_planner_fmm = "./scenario_2/2D/output_expt_fmm_" * string(iteration_num) * ".txt"
+		output_filename_2D_AS_planner_fmm = "./scenario_2/humans_"*string(num_humans)*"/2D/output_expt_fmm_" * string(iteration_num) * ".txt"
 		io = open(output_filename_2D_AS_planner_fmm,"w")
 		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
 	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
@@ -227,7 +228,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 													rand_noise_generator_for_sim, iteration_num, output_filename_2D_AS_planner_fmm)
 
 		if(write_to_file_flag)
-			expt_details_filename_2D_AS_planner_fmm = "./scenario_2/2D/details_expt_fmm_" * string(iteration_num) * ".jld2"
+			expt_details_filename_2D_AS_planner_fmm = "./scenario_2/humans_"*string(num_humans)*"/2D/details_expt_fmm_" * string(iteration_num) * ".jld2"
 	        write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
 	                just_2D_pomdp_solver_rng_fmm,just_2D_pomdp_all_gif_environments_fmm, just_2D_pomdp_all_observed_environments_fmm,
 	                just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data_fmm,just_2D_pomdp_all_generated_beliefs_fmm, just_2D_pomdp_all_generated_trees_fmm,
@@ -240,7 +241,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.
 		if(just_2D_pomdp_number_risks_fmm != 0 || just_2D_pomdp_cart_ran_into_boundary_wall_flag_fmm || just_2D_pomdp_cart_ran_into_static_obstacle_flag_fmm
 										|| !just_2D_pomdp_experiment_success_flag_fmm || !just_2D_pomdp_cart_reached_goal_flag_fmm)
-			risky_expt_filename_2D_AS_planner_fmm = "./scenario_2/2D/risky_scenarios/expt_fmm_" * string(iteration_num) * ".jld2"
+			risky_expt_filename_2D_AS_planner_fmm = "./scenario_2/humans_"*string(num_humans)*"/2D/risky_scenarios/expt_fmm_" * string(iteration_num) * ".jld2"
 			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
 	                just_2D_pomdp_solver_rng_fmm,just_2D_pomdp_all_gif_environments_fmm, just_2D_pomdp_all_observed_environments_fmm,
 	                just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data_fmm,just_2D_pomdp_all_generated_beliefs_fmm, just_2D_pomdp_all_generated_trees_fmm,
@@ -271,7 +272,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 
 		#Run experiment for 2D action space POMDP planner with PRM
 		rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
-		output_filename_2D_AS_planner_prm = "./scenario_2/2D/output_expt_prm_" * string(iteration_num) * ".txt"
+		output_filename_2D_AS_planner_prm = "./scenario_2/humans_"*string(num_humans)*"/2D/output_expt_prm_" * string(iteration_num) * ".txt"
 		io = open(output_filename_2D_AS_planner_prm,"w")
 		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
 	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
@@ -287,7 +288,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 													rand_noise_generator_for_sim, iteration_num, output_filename_2D_AS_planner_prm)
 
 		if(write_to_file_flag)
-			expt_details_filename_2D_AS_planner_prm = "./scenario_2/2D/details_expt_prm_" * string(iteration_num) * ".jld2"
+			expt_details_filename_2D_AS_planner_prm = "./scenario_2/humans_"*string(num_humans)*"/2D/details_expt_prm_" * string(iteration_num) * ".jld2"
 	        write_experiment_details_to_file_for_prm(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
 	                just_2D_pomdp_solver_rng_prm,just_2D_pomdp_all_gif_environments_prm, just_2D_pomdp_all_observed_environments_prm,
 	                just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data_prm,just_2D_pomdp_all_generated_beliefs_prm, just_2D_pomdp_all_generated_trees_prm,
@@ -300,7 +301,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.
 		if(just_2D_pomdp_number_risks_prm != 0 || just_2D_pomdp_cart_ran_into_boundary_wall_flag_prm || just_2D_pomdp_cart_ran_into_static_obstacle_flag_prm
 										|| !just_2D_pomdp_experiment_success_flag_prm || !just_2D_pomdp_cart_reached_goal_flag_prm)
-			risky_expt_filename_2D_AS_planner_prm = "./scenario_2/2D/risky_scenarios/expt_prm_" * string(iteration_num) * ".jld2"
+			risky_expt_filename_2D_AS_planner_prm = "./scenario_2/humans_"*string(num_humans)*"/2D/risky_scenarios/expt_prm_" * string(iteration_num) * ".jld2"
 			write_experiment_details_to_file_for_prm(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,rand_noise_generator_seed_for_prm,
 	                just_2D_pomdp_solver_rng_prm,just_2D_pomdp_all_gif_environments_prm, just_2D_pomdp_all_observed_environments_prm,
 	                just_2D_pomdp_all_generated_beliefs_using_complete_lidar_data_prm,just_2D_pomdp_all_generated_beliefs_prm, just_2D_pomdp_all_generated_trees_prm,
@@ -331,7 +332,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 
 		#Run experiment for 1D action space POMDP planner
 		rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
-		output_filename_1D_AS_planner = "./scenario_2/1D/output_expt_" * string(iteration_num) * ".txt"
+		output_filename_1D_AS_planner = "./scenario_2/humans_"*string(num_humans)*"/1D/output_expt_" * string(iteration_num) * ".txt"
 		io = open(output_filename_1D_AS_planner,"w")
 		write_and_print( io, "\n Running Simulation #" * string(iteration_num))
 	    write_and_print( io, "RNG seed for generating environemnt -> " * string(rand_noise_generator_seed_for_env))
@@ -346,7 +347,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 												rand_noise_generator_for_sim, iteration_num, output_filename_1D_AS_planner)
 
 		if(write_to_file_flag)
-			expt_details_filename_1D_AS_planner = "./scenario_2/1D/details_expt_" * string(iteration_num) * ".jld2"
+			expt_details_filename_1D_AS_planner = "./scenario_2/humans_"*string(num_humans)*"/1D/details_expt_" * string(iteration_num) * ".jld2"
 			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
 					astar_1D_solver_rng,astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
 					astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
@@ -358,7 +359,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 		#If this experiment lead to a risky scenario, then store those scenarios for debugging.
 		if(astar_1D_number_risks != 0 || astar_1D_cart_ran_into_boundary_wall_flag || astar_1D_cart_ran_into_static_obstacle_flag
 								|| !astar_1D_experiment_success_flag || !astar_1D_cart_reached_goal_flag)
-			risky_expt_filename_1D_AS_planner = "./scenario_3/1D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
+			risky_expt_filename_1D_AS_planner = "./scenario_2/humans_"*string(num_humans)*"/1D/risky_scenarios/expt_" * string(iteration_num) * ".jld2"
 			write_experiment_details_to_file(rand_noise_generator_seed_for_env,rand_noise_generator_seed_for_sim,
 					astar_1D_solver_rng,astar_1D_all_gif_environments, astar_1D_all_observed_environments, astar_1D_all_generated_beliefs_using_complete_lidar_data,
 					astar_1D_all_generated_beliefs,astar_1D_all_generated_trees, astar_1D_all_risky_scenarios, astar_1D_all_actions, astar_1D_all_planners,
@@ -471,7 +472,7 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	println("Standard Deviation in increment of number of sudden stops for PRM is - ", string(sqrt(variance_sudden_stops_increment_prm)))
 
 	results_dict = OrderedDict()
-	results_filename = "./RESULTS/scenario2_combined_humans_"*string(num_humans)*"_experiments_"*string(num_simulations) * ".jld2"
+	results_filename = "./NEW_RESULTS/scenario2_combined_humans_"*string(num_humans)*"_experiments_"*string(num_simulations) * ".jld2"
 
 	results_dict["total_safe_paths_2D_POMDP_planner_fmm"] = total_safe_paths_2D_POMDP_planner_fmm
 	results_dict["total_time_taken_2D_POMDP_planner_fmm"] = total_time_taken_2D_POMDP_planner_fmm
@@ -524,9 +525,13 @@ function run_experiment_pipeline(num_humans, num_simulations, write_to_file_flag
 	return
 end
 
+num_pedestrians = parse(Int,ARGS[1])
+num_experiments = parse(Int,ARGS[2])
+
 delete_old_txt_and_jld2_files_flag = true
 if(delete_old_txt_and_jld2_files_flag == true)
-	folder_location = "./scenario_2/"
+	nh = num_pedestrians
+	folder_location = "./scenario_1/humans_"*string(nh)*"/"
 	#Delete output txt files
 	#1D planner
 	foreach(rm, filter(endswith(".txt"), readdir(folder_location*"1D",join=true)))
@@ -546,8 +551,6 @@ if(delete_old_txt_and_jld2_files_flag == true)
 	foreach(rm, filter(endswith(".jld2"), readdir(folder_location*"2D/risky_scenarios",join=true)))
 end
 
-num_pedestrians = parse(Int,ARGS[1])
-num_experiments = parse(Int,ARGS[2])
 run_experiment_pipeline(num_pedestrians,num_experiments,false)
 
 #=
