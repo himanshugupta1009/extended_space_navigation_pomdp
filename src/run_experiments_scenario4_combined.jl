@@ -531,7 +531,7 @@ num_experiments = parse(Int,ARGS[2])
 delete_old_txt_and_jld2_files_flag = true
 if(delete_old_txt_and_jld2_files_flag == true)
 	nh = num_pedestrians
-	folder_location = "./scenario_1/humans_"*string(nh)*"/"
+	folder_location = "./scenario_4/humans_"*string(nh)*"/"
 	#Delete output txt files
 	#1D planner
 	foreach(rm, filter(endswith(".txt"), readdir(folder_location*"1D",join=true)))
