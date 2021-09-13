@@ -93,6 +93,7 @@ function run_one_simulation_1D_POMDP_planner(env_right_now,user_defined_rng, m,
         while(!is_within_range(location(env_right_now.cart.x,env_right_now.cart.y), env_right_now.cart.goal, 1.0))
             io = open(filename,"a")
             cart_ran_into_boundary_wall_flag = check_if_cart_collided_with_boundary_wall(env_right_now)
+            cart_ran_into_boundary_wall_flag = false
             cart_ran_into_static_obstacle_flag = check_if_cart_collided_with_static_obstacles(env_right_now)
 
             if( !cart_ran_into_boundary_wall_flag && !cart_ran_into_static_obstacle_flag )
@@ -252,15 +253,15 @@ create_gif_flag = true
 if(run_simulation_flag)
 
     #Set seeds for different random number generators randomly
-    # rand_noise_generator_seed_for_env = rand(UInt32)
-    # rand_noise_generator_seed_for_sim = rand(UInt32)
+    rand_noise_generator_seed_for_env = rand(UInt32)
+    rand_noise_generator_seed_for_sim = rand(UInt32)
     # rand_noise_generator_seed_for_prm = 11
     # rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     # rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
 
     #Set seeds for different random number generators manually
-    rand_noise_generator_seed_for_env = 4258915202
-    rand_noise_generator_seed_for_sim = 946026168
+    # rand_noise_generator_seed_for_env = 4258915202
+    # rand_noise_generator_seed_for_sim = 946026168
     rand_noise_generator_seed_for_solver = 2162167893
     rand_noise_generator_for_env = MersenneTwister(rand_noise_generator_seed_for_env)
     rand_noise_generator_for_sim = MersenneTwister(rand_noise_generator_seed_for_sim)
@@ -288,7 +289,7 @@ if(run_simulation_flag)
     # solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
     #         calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf, max_trials=50, tree_in_info=true)
     solver = DESPOTSolver(bounds=IndependentBounds(DefaultPolicyLB(FunctionPolicy(calculate_lower_bound_policy_pomdp_planning_1D_action_space)),
-            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=Inf, max_trials=50, tree_in_info=true,
+            calculate_upper_bound_value_pomdp_planning_1D_action_space, check_terminal=true),K=50,D=100,T_max=0.3, tree_in_info=true,
             rng=rand_noise_generator_for_solver)
 
     write_and_print( io, "RNG seed for Solver -> " * string(solver.rng.seed[1]) * "\n")
